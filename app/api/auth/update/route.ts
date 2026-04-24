@@ -15,7 +15,7 @@ export async function PUT(req: Request) {
       email,
       password,
       newPassword,
-      avatar, // 🔥 IMPORTANTE
+      avatar,
     } = body;
 
     const cookieStore = await cookies();
@@ -46,49 +46,62 @@ export async function PUT(req: Request) {
       );
     }
 
+    // 🧼 LIMPIAR DATOS
     const nombreClean = (nombre || "").trim();
-const emailClean = (email || "").toLowerCase().trim();
-// 🔍 VALIDAR SI EL EMAIL YA EXISTE
-if (emailClean !== user.email) {
-  const existingUser = await prisma.usuario.findFirst({
-    where: {
-      email: emailClean,
-      NOT: {
-        id: userId,
-      },
-    },
-  });
+    const emailClean = (email || "").toLowerCase().trim();
 
-  if (existingUser) {
-    return NextResponse.json(
-      { error: "El correo ya está en uso" },
-      { status: 400 }
-    );
-  }
-}
+    // 🚫 VALIDAR EMAIL VACÍO
+    if (!emailClean) {
+      return NextResponse.json(
+        { error: "El correo es obligatorio" },
+        { status: 400 }
+      );
+    }
 
-    // 🚨 DEBUG CLAVE
+    // 📧 VALIDAR FORMATO EMAIL
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailClean)) {
+      return NextResponse.json(
+        { error: "Correo inválido" },
+        { status: 400 }
+      );
+    }
+
+    // 🔍 VALIDAR DUPLICADO SOLO SI CAMBIÓ
+    if (emailClean !== user.email) {
+      const existingUser = await prisma.usuario.findFirst({
+        where: {
+          email: emailClean,
+          NOT: {
+            id: userId,
+          },
+        },
+      });
+
+      if (existingUser) {
+        return NextResponse.json(
+          { error: "El correo ya está en uso" },
+          { status: 400 }
+        );
+      }
+    }
+
     console.log("AVATAR RECIBIDO:", avatar);
 
-    // 🔥 DATA FINAL (AQUÍ ESTABA EL ERROR)
+    // 🔥 DATA FINAL SEGURA
     let dataToUpdate: any = {
-  nombre: nombreClean,
-};
+      nombre: nombreClean,
+    };
 
-// ✅ solo si cambia el email
-if (emailClean !== user.email) {
-  dataToUpdate.email = emailClean;
-}
+    // ✅ SOLO SI CAMBIA EMAIL
+    if (emailClean !== user.email) {
+      dataToUpdate.email = emailClean;
+    }
 
-// ✅ solo si hay avatar
-if (avatar && avatar.trim() !== "") {
-  dataToUpdate.avatar = avatar;
-}
-
-// 🖼️ SOLO SI HAY AVATAR REAL
-if (avatar && avatar.trim() !== "") {
-  dataToUpdate.avatar = avatar;
-}
+    // ✅ SOLO SI HAY AVATAR REAL
+    if (avatar && avatar.trim() !== "") {
+      dataToUpdate.avatar = avatar;
+    }
 
     // 🔐 CAMBIO DE PASSWORD
     if (newPassword) {
@@ -112,7 +125,7 @@ if (avatar && avatar.trim() !== "") {
       dataToUpdate.password = hash;
     }
 
-    // 💾 UPDATE FINAL
+    // 💾 UPDATE
     const updatedUser = await prisma.usuario.update({
       where: { id: userId },
       data: dataToUpdate,
