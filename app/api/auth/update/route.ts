@@ -48,6 +48,24 @@ export async function PUT(req: Request) {
 
     const nombreClean = (nombre || "").trim();
 const emailClean = (email || "").toLowerCase().trim();
+// 🔍 VALIDAR SI EL EMAIL YA EXISTE
+if (emailClean !== user.email) {
+  const existingUser = await prisma.usuario.findFirst({
+    where: {
+      email: emailClean,
+      NOT: {
+        id: userId,
+      },
+    },
+  });
+
+  if (existingUser) {
+    return NextResponse.json(
+      { error: "El correo ya está en uso" },
+      { status: 400 }
+    );
+  }
+}
 
     // 🚨 DEBUG CLAVE
     console.log("AVATAR RECIBIDO:", avatar);
@@ -55,8 +73,17 @@ const emailClean = (email || "").toLowerCase().trim();
     // 🔥 DATA FINAL (AQUÍ ESTABA EL ERROR)
     let dataToUpdate: any = {
   nombre: nombreClean,
-  email: emailClean,
 };
+
+// ✅ solo si cambia el email
+if (emailClean !== user.email) {
+  dataToUpdate.email = emailClean;
+}
+
+// ✅ solo si hay avatar
+if (avatar && avatar.trim() !== "") {
+  dataToUpdate.avatar = avatar;
+}
 
 // 🖼️ SOLO SI HAY AVATAR REAL
 if (avatar && avatar.trim() !== "") {
