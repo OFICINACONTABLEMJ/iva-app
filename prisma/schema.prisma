@@ -86,6 +86,8 @@ model Factura {
   categoria    String?
   tipo         String?
 
+  deducible    Boolean @default(true) // 🔥 AGREGA ESTO
+
   mes          Int
   anio         Int
 
