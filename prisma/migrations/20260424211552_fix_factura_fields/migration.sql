@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Factura" ALTER COLUMN "serie" DROP NOT NULL,
+ALTER COLUMN "numero" DROP NOT NULL;

@@ -72,8 +72,8 @@ model Factura {
   id           String   @id @default(cuid())
 
   descripcion  String
-  serie        String
-  numero       String
+  serie        String?
+  numero       String?
 
   nit          String?      // si lo usas general
   emisorNIT    String       // 🔥 AGREGAR

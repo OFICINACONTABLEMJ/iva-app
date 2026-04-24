@@ -54,7 +54,7 @@ export async function GET() {
 // 🔹 GUARDAR FACTURA
 export async function POST(req: Request) {
   try {
-    const userId = getUserIdFromToken();
+    const userId = await getUserIdFromToken();
 
     if (!userId) {
       return NextResponse.json(
