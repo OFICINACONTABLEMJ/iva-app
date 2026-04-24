@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+  model Usuario {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  nombre    String
+  avatar    String?
+  createdAt DateTime @default(now())
+
+  compras   Compra[]
+  logo      String?
+}
+
+model Compra {
+  id          String   @id @default(cuid())
+  descripcion String
+  categoria   String
+  total       Float
+  base        Float
+  iva         Float
+  mes         Int
+  anio        Int
+
+  createdAt   DateTime @default(now()) 
+
+  usuarioId   String
+  usuario     Usuario @relation(fields: [usuarioId], references: [id])
+  uuid String?
+@@unique([uuid, usuarioId])
+}
+model Resumen {
+  id          String   @id @default(cuid())
+  userId      String
+  mes         Int
+  anio        Int
+
+  ventas      Float    @default(0)
+  debito      Float
+  credito     Float
+  iva         Float
+  retenciones Float    @default(0) 
+
+  bloqueado   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, mes, anio])
+}
+model MesCerrado {
+  id        String @id @default(cuid())
+  usuarioId String
+  mes       Int
+  anio      Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([usuarioId, mes, anio])
+}
