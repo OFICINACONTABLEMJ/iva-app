@@ -90,25 +90,7 @@ useEffect(() => {
     document.removeEventListener("mousedown", handleClickOutside);
   };
 }, []);
-useEffect(() => {
-  const cargarUser = async () => {
-    try {
-      const res = await fetch("/api/auth/me", {
-        credentials: "include",
-      });
 
-      const data = await res.json();
-
-      if (data) {
-        setUser(data); // 🔥 ESTE ES EL IMPORTANTE
-      }
-    } catch (err) {
-      console.error("Error cargando usuario");
-    }
-  };
-
-  cargarUser();
-}, []);
 useEffect(() => {
   const cargarUser = async () => {
     try {
@@ -119,7 +101,7 @@ useEffect(() => {
       const data = await res.json();
 
       if (data?.user) {
-        setUser(data.user); // ✅ SIEMPRE ASÍ
+        setUser(data.user); // ✅ correcto
       }
     } catch (err) {
       console.error("Error cargando usuario", err);
@@ -128,6 +110,11 @@ useEffect(() => {
 
   cargarUser();
 }, []);
+useEffect(() => {
+  if (!user) {
+    router.push("/login");
+  }
+}, [user]);
 
 
   // ➕ AGREGAR COMPRA
@@ -445,7 +432,13 @@ console.log("XML cargados:", comprasXML.length);
       alert("Error de conexión");
     }
   };
-if (!user) return null;
+if (!user) {
+  return (
+    <div className="flex items-center justify-center h-screen text-white">
+      Cargando...
+    </div>
+  );
+}
   return (
   <div className="min-h-screen bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 text-gray-900">
 
