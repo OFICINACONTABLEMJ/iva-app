@@ -69,23 +69,28 @@ model MesCerrado {
 }
 
 model Factura {
-  id          String   @id @default(cuid())
-  descripcion String
-  serie       String
-  numero      String
-  nit         String
+  id           String   @id @default(cuid())
 
-  total       Float
-  base        Float      // 🔥 AGREGAR
-  iva         Float      // 🔥 AGREGAR
-  categoria   String?    // 🔥 OPCIONAL
-  tipo        String?    // 🔥 OPCIONAL
+  descripcion  String
+  serie        String
+  numero       String
 
-  mes         Int
-  anio        Int
+  nit          String?      // si lo usas general
+  emisorNIT    String       // 🔥 AGREGAR
+  receptorNIT  String       // 🔥 AGREGAR
 
-  usuarioId   String
-  usuario     Usuario @relation(fields: [usuarioId], references: [id])
+  total        Float
+  base         Float
+  iva          Float
 
-  createdAt   DateTime @default(now())
+  categoria    String?
+  tipo         String?
+
+  mes          Int
+  anio         Int
+
+  usuarioId    String
+  usuario      Usuario @relation(fields: [usuarioId], references: [id])
+
+  createdAt    DateTime @default(now())
 }
