@@ -4,43 +4,44 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
-    const { nombre, email, password } = await req.json();
+    let data;
 
-    // 🔒 validar campos
+    try {
+      data = await req.json();
+    } catch (e) {
+      console.error("JSON ERROR:", e);
+      return NextResponse.json(
+        { error: "Error leyendo datos" },
+        { status: 400 }
+      );
+    }
+
+    console.log("DATA:", data);
+
+    const { nombre, email, password } = data;
+
     if (!nombre || !email || !password) {
       return NextResponse.json(
-        { error: "Todos los campos son obligatorios" },
+        { error: "Faltan campos" },
         { status: 400 }
       );
     }
 
-    // 🔍 verificar si ya existe
-    const existe = await prisma.usuario.findUnique({
-      where: { email },
-    });
+    const bcrypt = await import("bcryptjs");
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    if (existe) {
-      return NextResponse.json(
-        { error: "Este correo ya está registrado" },
-        { status: 400 }
-      );
-    }
-
-    // 🔐 hash password
-    const hash = await bcrypt.hash(password, 10);
-
-    // 💾 crear usuario
     const user = await prisma.usuario.create({
       data: {
         nombre,
         email,
-        password: hash,
+        password: hashedPassword,
       },
     });
 
-    return NextResponse.json({ ok: true, user });
+    return NextResponse.json(user);
 
   } catch (error) {
+    console.error("REGISTER ERROR:", error);
     return NextResponse.json(
       { error: "Error en el servidor" },
       { status: 500 }
