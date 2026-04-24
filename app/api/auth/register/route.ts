@@ -6,6 +6,7 @@ export async function POST(req: Request) {
   try {
     let data;
 
+    // 🔹 Leer JSON seguro
     try {
       data = await req.json();
     } catch (e) {
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
 
     const { nombre, email, password } = data;
 
+    // 🔹 Validación básica
     if (!nombre || !email || !password) {
       return NextResponse.json(
         { error: "Faltan campos" },
@@ -27,9 +29,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const bcrypt = await import("bcryptjs");
+    // 🔹 Verificar si ya existe usuario
+    const existingUser = await prisma.usuario.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "El usuario ya existe" },
+        { status: 400 }
+      );
+    }
+
+    // 🔹 Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // 🔹 Crear usuario
     const user = await prisma.usuario.create({
       data: {
         nombre,
@@ -42,8 +57,14 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error("REGISTER ERROR:", error);
+
     return NextResponse.json(
-      { error: "Error en el servidor" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error en el servidor",
+      },
       { status: 500 }
     );
   }
