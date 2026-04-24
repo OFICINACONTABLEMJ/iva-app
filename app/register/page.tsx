@@ -11,6 +11,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
 
   const register = async () => {
+  try {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: {
@@ -21,13 +22,21 @@ export default function Register() {
 
     const data = await res.json();
 
-    if (data.ok) {
-      alert("Cuenta creada correctamente");
-      router.push("/login");
-    } else {
-      alert(data.error);
+    // ❌ ERROR
+    if (!res.ok) {
+      alert(data.error || "Error en el servidor");
+      return;
     }
-  };
+
+    // ✅ ÉXITO
+    alert("Cuenta creada correctamente");
+    router.push("/login");
+
+  } catch (error) {
+    console.error(error);
+    alert("Error de conexión");
+  }
+};
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600">
