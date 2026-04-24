@@ -54,10 +54,14 @@ const emailClean = (email || "").toLowerCase().trim();
 
     // 🔥 DATA FINAL (AQUÍ ESTABA EL ERROR)
     let dataToUpdate: any = {
-      nombre,
-      email: emailClean,
-      avatar: avatar, // 🔥 FORZAMOS GUARDADO SIEMPRE
-    };
+  nombre: nombreClean,
+  email: emailClean,
+};
+
+// 🖼️ SOLO SI HAY AVATAR REAL
+if (avatar && avatar.trim() !== "") {
+  dataToUpdate.avatar = avatar;
+}
 
     // 🔐 CAMBIO DE PASSWORD
     if (newPassword) {
