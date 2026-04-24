@@ -7,7 +7,7 @@ datasource db {
   url      = "file:./dev.db"
 }
 
-  model Usuario {
+model Usuario {
   id        String   @id @default(cuid())
   email     String   @unique
   password  String
@@ -15,12 +15,13 @@ datasource db {
   avatar    String?
   createdAt DateTime @default(now())
 
-  compras   Compra[]
-  logo      String?
+  compras  Compra[]
+  logo     String?
+  facturas Factura[]
 }
 
 model Compra {
-  id          String   @id @default(cuid())
+  id          String @id @default(cuid())
   descripcion String
   categoria   String
   total       Float
@@ -29,30 +30,33 @@ model Compra {
   mes         Int
   anio        Int
 
-  createdAt   DateTime @default(now()) 
+  createdAt DateTime @default(now())
 
-  usuarioId   String
-  usuario     Usuario @relation(fields: [usuarioId], references: [id])
-  uuid String?
-@@unique([uuid, usuarioId])
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+  uuid      String?
+
+  @@unique([uuid, usuarioId])
 }
-model Resumen {
-  id          String   @id @default(cuid())
-  userId      String
-  mes         Int
-  anio        Int
 
-  ventas      Float    @default(0)
+model Resumen {
+  id     String @id @default(cuid())
+  userId String
+  mes    Int
+  anio   Int
+
+  ventas      Float @default(0)
   debito      Float
   credito     Float
   iva         Float
-  retenciones Float    @default(0) 
+  retenciones Float @default(0)
 
-  bloqueado   Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  bloqueado Boolean  @default(true)
+  createdAt DateTime @default(now())
 
   @@unique([userId, mes, anio])
 }
+
 model MesCerrado {
   id        String @id @default(cuid())
   usuarioId String
@@ -62,4 +66,20 @@ model MesCerrado {
   createdAt DateTime @default(now())
 
   @@unique([usuarioId, mes, anio])
+}
+
+model Factura {
+  id      String  @id @default(cuid())
+  serie   String?
+  numero  String?
+  cliente String?
+  total   Float
+
+  mes  Int
+  anio Int
+
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  createdAt DateTime @default(now())
 }
