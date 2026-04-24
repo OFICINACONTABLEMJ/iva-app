@@ -70,6 +70,7 @@ model MesCerrado {
 
 model Factura {
   id      String  @id @default(cuid())
+  descripcion String
   serie   String?
   numero  String?
   cliente String?
