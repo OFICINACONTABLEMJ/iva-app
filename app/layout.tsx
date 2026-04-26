@@ -1,6 +1,7 @@
 import "./globals.css";
 import { UserProvider } from "./context/UserContext";
 import Sidebar from "@/app/components/Sidebar";
+import { Analytics } from '@vercel/analytics/next';
 
 export default function RootLayout({
   children,
@@ -24,7 +25,7 @@ export default function RootLayout({
 
           </div>
         </UserProvider>
-
+        <Analytics />
       </body>
     </html>
   );
