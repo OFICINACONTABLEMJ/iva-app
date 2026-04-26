@@ -91,20 +91,26 @@ export default function Perfil() {
     }
 
     // 🔥 actualizar usuario
-    const res = await fetch("/api/auth/update", {
-      method: "PUT",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        nombre,
-        email,
-        password,
-        newPassword,
-        avatar: avatarUrl, // 🔥 NUNCA null
-      }),
-    });
+    const bodyData: any = {
+  nombre,
+  password,
+  newPassword,
+  avatar: avatarUrl,
+};
+
+// 🔥 SOLO SI CAMBIA EL EMAIL
+if (email !== user?.email) {
+  bodyData.email = email;
+}
+
+const res = await fetch("/api/auth/update", {
+  method: "PUT",
+  credentials: "include",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(bodyData),
+});
 
     const data = await res.json();
 
