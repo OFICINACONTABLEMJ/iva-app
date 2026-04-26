@@ -49,12 +49,12 @@ export async function POST(req: NextRequest) {
 
     // 🍪 GUARDAR COOKIE (🔥 CLAVE)
     res.cookies.set("session", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false, // 🔥 en local (HTTP)
-      path: "/",
-      maxAge: 60 * 60 * 24, // 🔥 1 día
-    });
+  httpOnly: true,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production", // 🔥 CLAVE
+  path: "/",
+  maxAge: 60 * 60 * 24,
+});
 
     return res;
 
