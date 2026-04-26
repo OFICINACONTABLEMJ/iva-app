@@ -89,10 +89,12 @@ export default function Perfil() {
 
       avatarUrl = uploadData.url;
     }
+    
 
     // 🔥 actualizar usuario
     const bodyData: any = {
   nombre,
+  email, // ✅ SIEMPRE MANDARLO
   password,
   newPassword,
   avatar: avatarUrl,
@@ -102,6 +104,7 @@ export default function Perfil() {
 if (email !== user?.email) {
   bodyData.email = email;
 }
+
 
 const res = await fetch("/api/auth/update", {
   method: "PUT",
@@ -201,7 +204,7 @@ const res = await fetch("/api/auth/update", {
 
           <input
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
             className="w-full p-2 border rounded"
             placeholder="Correo"
           />
