@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
     // 🍪 GUARDAR COOKIE (🔥 CLAVE)
     res.cookies.set("session", token, {
   httpOnly: true,
-  sameSite: "lax",
-  secure: process.env.NODE_ENV === "production", // 🔥 CLAVE
+  secure: true, // 🔥 SIEMPRE true en producción
+  sameSite: "none", // 🔥 CLAVE
   path: "/",
   maxAge: 60 * 60 * 24,
 });
