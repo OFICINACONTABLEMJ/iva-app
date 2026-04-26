@@ -123,6 +123,9 @@ export default function Perfil() {
       bodyData.password = password;
       bodyData.newPassword = newPassword;
     }
+    f (Object.keys(bodyData).length === 0) {
+      setMsg("❌ No hay cambios para guardar");
+      return;
 
     // 🔥 PETICIÓN
     const res = await fetch("/api/auth/update", {
