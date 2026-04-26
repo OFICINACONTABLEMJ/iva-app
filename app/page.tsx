@@ -160,7 +160,6 @@ useEffect(() => {
 
   // 🔥 XML COMPRAS
   const handleXMLCompras = async (e: any) => {
-
   // 🔒 BLOQUEO FRONTEND
   if (bloqueado) {
     alert("Mes bloqueado, no puedes subir XML");
@@ -177,7 +176,6 @@ useEffect(() => {
     const texto = (descripcion || "").toLowerCase();
     const proveedor = (emisor || "").toLowerCase();
 
-    // ⛽ COMBUSTIBLE
     if (
       texto.includes("diesel") ||
       texto.includes("gasolina") ||
@@ -192,7 +190,6 @@ useEffect(() => {
       return "Combustible";
     }
 
-    // 💡 SERVICIOS
     if (
       texto.includes("agua") ||
       texto.includes("luz") ||
@@ -225,42 +222,47 @@ useEffect(() => {
       const uuid = auth?.textContent?.trim() || "";
 
       // =========================
-      // ✅ TOTAL
+      // 🔍 EMISOR
       // =========================
-      const total =
-        xml.getElementsByTagName("dte:GranTotal")[0]?.textContent ||
-        xml.getElementsByTagName("GranTotal")[0]?.textContent ||
-        "0";
+      const emisor =
+        xml.getElementsByTagName("dte:Emisor")[0]?.getAttribute("NombreComercial") ||
+        xml.getElementsByTagName("Emisor")[0]?.getAttribute("NombreComercial") ||
+        "";
 
       // =========================
-      // ✅ IVA
+      // 🔥 ITEMS (CLAVE)
       // =========================
-      const impuestosTotales =
-        xml.getElementsByTagName("dte:TotalImpuesto").length > 0
-          ? xml.getElementsByTagName("dte:TotalImpuesto")
-          : xml.getElementsByTagName("TotalImpuesto");
+      const items =
+        xml.getElementsByTagName("dte:Item").length > 0
+          ? xml.getElementsByTagName("dte:Item")
+          : xml.getElementsByTagName("Item");
 
-      let iva = 0;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
 
-      for (let i = 0; i < impuestosTotales.length; i++) {
-        const imp = impuestosTotales[i];
-        const nombre = imp.getAttribute("NombreCorto");
-        const monto = imp.getAttribute("TotalMontoImpuesto");
+        // 🧾 descripción
+        const descripcion =
+          item.getElementsByTagName("dte:Descripcion")[0]?.textContent ||
+          item.getElementsByTagName("Descripcion")[0]?.textContent ||
+          "Item XML";
 
-        if (nombre?.toUpperCase() === "IVA") {
-          iva += Number(monto || 0);
-        }
-      }
+        // 💰 total por item
+        const total = Number(
+          item.getElementsByTagName("dte:Total")[0]?.textContent ||
+          item.getElementsByTagName("Total")[0]?.textContent ||
+          "0"
+        );
 
-      // 🔁 FALLBACK IVA
-      if (iva === 0) {
-        const items =
-          xml.getElementsByTagName("dte:Impuesto").length > 0
-            ? xml.getElementsByTagName("dte:Impuesto")
-            : xml.getElementsByTagName("Impuesto");
+        // 🔥 IVA SOLO DE ESTE ITEM
+        let ivaItem = 0;
 
-        for (let i = 0; i < items.length; i++) {
-          const imp = items[i];
+        const impuestos =
+          item.getElementsByTagName("dte:Impuesto").length > 0
+            ? item.getElementsByTagName("dte:Impuesto")
+            : item.getElementsByTagName("Impuesto");
+
+        for (let j = 0; j < impuestos.length; j++) {
+          const imp = impuestos[j];
 
           const nombre =
             imp.getElementsByTagName("dte:NombreCorto")[0]?.textContent ||
@@ -271,58 +273,47 @@ useEffect(() => {
             imp.getElementsByTagName("MontoImpuesto")[0]?.textContent;
 
           if (nombre?.toUpperCase() === "IVA") {
-            iva += Number(monto || 0);
+            ivaItem += Number(monto || 0);
           }
         }
-      }
 
-      // =========================
-      // 🔍 DESCRIPCIÓN + EMISOR
-      // =========================
-      const descripcion =
-        xml.getElementsByTagName("dte:Descripcion")[0]?.textContent ||
-        xml.getElementsByTagName("Descripcion")[0]?.textContent ||
-        "Compra XML";
+        const base = total - ivaItem;
 
-      const emisor =
-        xml.getElementsByTagName("dte:Emisor")[0]?.getAttribute("NombreComercial") ||
-        xml.getElementsByTagName("Emisor")[0]?.getAttribute("NombreComercial") ||
-        "";
+        const categoria = detectarCategoria(descripcion, emisor);
 
-      const categoria = detectarCategoria(descripcion, emisor);
+        // =========================
+        // 💾 GUARDAR CADA ITEM
+        // =========================
+        const res = await fetch("/api/compras", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            descripcion: "[XML] " + descripcion,
+            categoria,
+            total,
+            base,
+            iva: ivaItem,
+            mes,
+            anio,
+            uuid,
+          }),
+        });
 
-      // =========================
-      // 💾 GUARDAR
-      // =========================
-      const res = await fetch("/api/compras", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          descripcion: "[XML] " + descripcion,
+        if (!res.ok) {
+          const data = await res.json();
+          console.log("⚠️", data.error);
+          continue;
+        }
+
+        resultados.push({
+          total,
+          iva: ivaItem,
           categoria,
-          total: Number(total),
-          base: Number(total) - iva,
-          iva,
-          mes,
-          anio,
-          uuid,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        console.log("⚠️", data.error);
-        continue;
+        });
       }
-
-      resultados.push({
-        total: Number(total),
-        iva,
-        categoria,
-      });
 
     } catch (err) {
       console.error("Error procesando XML:", err);
@@ -335,7 +326,7 @@ useEffect(() => {
 
   setComprasXML(resultados);
 
-  // 🔁 RESET INPUT (CLAVE)
+  // 🔁 RESET INPUT
   e.target.value = "";
 };
 console.log("XML cargados:", comprasXML.length);
