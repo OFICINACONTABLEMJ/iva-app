@@ -25,22 +25,18 @@ export default function Perfil() {
 
   // 🔄 cargar usuario
   useEffect(() => {
-    if (!email || email.trim() === "") {
-  setMsg("❌ El correo es obligatorio");
-  return;
-}
   fetch("/api/auth/me", { credentials: "include" })
     .then((res) => res.json())
     .then((data) => {
-  const u = data.user || data; // 🔥 soporta ambos formatos
+      const u = data.user || data; // 🔥 soporta ambos formatos
 
-  if (u) {
-    setNombre(u.nombre || "");
-    setEmail(u.email || "");
-    setAvatar(u.avatar || "");
-    setUser(u);
-  }
-})
+      if (u) {
+        setNombre(u.nombre || "");
+        setEmail(u.email || "");
+        setAvatar(u.avatar || "");
+        setUser(u);
+      }
+    })
     .finally(() => {
       setLoading(false);
     });
@@ -74,9 +70,21 @@ export default function Perfil() {
   setMsg("");
 
   try {
-    let avatarUrl = avatar; // 🔥 NO null
+    // 🔥 VALIDAR SI HAY CAMBIOS
+    if (!nombre && !email && !file && !newPassword) {
+      setMsg("❌ No hay cambios para guardar");
+      return;
+    }
 
-    // 🔥 subir imagen
+    // 🔥 VALIDAR EMAIL SOLO SI VIENE
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setMsg("❌ Correo inválido");
+      return;
+    }
+
+    let avatarUrl = avatar;
+
+    // 📷 SUBIR IMAGEN (SI HAY)
     if (file) {
       const formData = new FormData();
       formData.append("file", file);
@@ -95,31 +103,36 @@ export default function Perfil() {
 
       avatarUrl = uploadData.url;
     }
-    
 
-    // 🔥 actualizar usuario
-    const bodyData: any = {
-  nombre,
-  email, // ✅ SIEMPRE MANDARLO
-  password,
-  newPassword,
-  avatar: avatarUrl,
-};
+    // 🔥 ARMAR BODY DINÁMICO (SOLO LO QUE CAMBIA)
+    const bodyData: any = {};
 
-// 🔥 SOLO SI CAMBIA EL EMAIL
-if (email !== user?.email) {
-  bodyData.email = email;
-}
+    if (nombre && nombre.trim() !== "") {
+      bodyData.nombre = nombre.trim();
+    }
 
+    if (email && email.trim() !== "") {
+      bodyData.email = email.trim().toLowerCase();
+    }
 
-const res = await fetch("/api/auth/update", {
-  method: "PUT",
-  credentials: "include",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(bodyData),
-});
+    if (avatarUrl && avatarUrl !== avatar) {
+      bodyData.avatar = avatarUrl;
+    }
+
+    if (newPassword) {
+      bodyData.password = password;
+      bodyData.newPassword = newPassword;
+    }
+
+    // 🔥 PETICIÓN
+    const res = await fetch("/api/auth/update", {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(bodyData),
+    });
 
     const data = await res.json();
 
@@ -128,17 +141,16 @@ const res = await fetch("/api/auth/update", {
       return;
     }
 
-    // 🔥 ACTUALIZAR TODO BIEN
+    // 🔥 ACTUALIZAR CONTEXTO
     setUser({
       ...user,
-      nombre,
-      email,
-      avatar: avatarUrl,
+      nombre: bodyData.nombre ?? user?.nombre,
+      email: bodyData.email ?? user?.email,
+      avatar: avatarUrl ?? user?.avatar,
     });
 
-    setAvatar(avatarUrl); // 🔥 CLAVE
-
-    // limpiar
+    // 🔥 LIMPIAR
+    setAvatar(avatarUrl);
     setPreview("");
     setFile(null);
     setPassword("");
@@ -175,18 +187,12 @@ const res = await fetch("/api/auth/update", {
   <div className="w-20 h-20 rounded-full bg-gray-300 animate-pulse" />
 ) : (
   <img
-    src={
-      preview
-        ? preview
-        : avatar
-        ? avatar + "?t=" + Date.now()
-        : "/default-avatar.png"
-    }
-    onError={(e) => {
-      (e.target as HTMLImageElement).src = "/default-avatar.png";
-    }}
-    className="w-20 h-20 rounded-full object-cover"
-  />
+  src={preview || avatar || "/default-avatar.png"}
+  onError={(e) => {
+    (e.target as HTMLImageElement).src = "/default-avatar.png";
+  }}
+  className="w-20 h-20 rounded-full object-cover"
+/>
 )}
 
             <input
