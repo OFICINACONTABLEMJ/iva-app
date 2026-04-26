@@ -25,16 +25,22 @@ export default function Perfil() {
 
   // 🔄 cargar usuario
   useEffect(() => {
+    if (!email || email.trim() === "") {
+  setMsg("❌ El correo es obligatorio");
+  return;
+}
   fetch("/api/auth/me", { credentials: "include" })
     .then((res) => res.json())
     .then((data) => {
-      if (data) {
-        setNombre(data.nombre);
-        setEmail(data.email);
-        setAvatar(data.avatar || "");
-        setUser(data); // 🔥 ESTE ES EL FIX CLAVE
-      }
-    })
+  const u = data.user || data; // 🔥 soporta ambos formatos
+
+  if (u) {
+    setNombre(u.nombre || "");
+    setEmail(u.email || "");
+    setAvatar(u.avatar || "");
+    setUser(u);
+  }
+})
     .finally(() => {
       setLoading(false);
     });
@@ -203,11 +209,20 @@ const res = await fetch("/api/auth/update", {
           />
 
           <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
-            className="w-full p-2 border rounded"
-            placeholder="Correo"
-          />
+  type="email"
+  value={email}
+  onChange={(e) => {
+    const value = e.target.value;
+    setEmail(value);
+  }}
+  onBlur={() => {
+    // 🔥 normaliza solo cuando el usuario termina de escribir
+    setEmail((prev) => prev.trim().toLowerCase());
+  }}
+  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+  placeholder="Correo"
+  required
+/>
 
           <hr />
 
