@@ -160,7 +160,7 @@ useEffect(() => {
 
   // 🔥 XML COMPRAS
   const handleXMLCompras = async (e: any) => {
-  // 🔒 BLOQUEO FRONTEND
+  // 🔒 BLOQUEO
   if (bloqueado) {
     alert("Mes bloqueado, no puedes subir XML");
     return;
@@ -221,39 +221,32 @@ useEffect(() => {
 
       const uuid = auth?.textContent?.trim() || "";
 
-      // =========================
-      // 🔍 EMISOR
-      // =========================
+      // 🔥 EMISOR
       const emisor =
         xml.getElementsByTagName("dte:Emisor")[0]?.getAttribute("NombreComercial") ||
         xml.getElementsByTagName("Emisor")[0]?.getAttribute("NombreComercial") ||
         "";
 
-      // =========================
-      // 🔥 ITEMS (CLAVE)
-      // =========================
+      // 🔥 OBTENER ITEMS (CLAVE)
       const items =
         xml.getElementsByTagName("dte:Item").length > 0
           ? xml.getElementsByTagName("dte:Item")
           : xml.getElementsByTagName("Item");
 
+      // 🚀 RECORRER CADA ITEM
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
 
-        // 🧾 descripción
         const descripcion =
           item.getElementsByTagName("dte:Descripcion")[0]?.textContent ||
           item.getElementsByTagName("Descripcion")[0]?.textContent ||
           "Item XML";
 
-        // 💰 total por item
-        const total = Number(
+        const totalItem =
           item.getElementsByTagName("dte:Total")[0]?.textContent ||
           item.getElementsByTagName("Total")[0]?.textContent ||
-          "0"
-        );
+          "0";
 
-        // 🔥 IVA SOLO DE ESTE ITEM
         let ivaItem = 0;
 
         const impuestos =
@@ -262,28 +255,22 @@ useEffect(() => {
             : item.getElementsByTagName("Impuesto");
 
         for (let j = 0; j < impuestos.length; j++) {
-          const imp = impuestos[j];
-
           const nombre =
-            imp.getElementsByTagName("dte:NombreCorto")[0]?.textContent ||
-            imp.getElementsByTagName("NombreCorto")[0]?.textContent;
+            impuestos[j].getElementsByTagName("dte:NombreCorto")[0]?.textContent ||
+            impuestos[j].getElementsByTagName("NombreCorto")[0]?.textContent;
 
           const monto =
-            imp.getElementsByTagName("dte:MontoImpuesto")[0]?.textContent ||
-            imp.getElementsByTagName("MontoImpuesto")[0]?.textContent;
+            impuestos[j].getElementsByTagName("dte:MontoImpuesto")[0]?.textContent ||
+            impuestos[j].getElementsByTagName("MontoImpuesto")[0]?.textContent;
 
           if (nombre?.toUpperCase() === "IVA") {
             ivaItem += Number(monto || 0);
           }
         }
 
-        const base = total - ivaItem;
-
         const categoria = detectarCategoria(descripcion, emisor);
 
-        // =========================
         // 💾 GUARDAR CADA ITEM
-        // =========================
         const res = await fetch("/api/compras", {
           method: "POST",
           headers: {
@@ -293,12 +280,12 @@ useEffect(() => {
           body: JSON.stringify({
             descripcion: "[XML] " + descripcion,
             categoria,
-            total,
-            base,
+            total: Number(totalItem),
+            base: Number(totalItem) - ivaItem,
             iva: ivaItem,
             mes,
             anio,
-            uuid,
+            uuid: uuid + "-" + i, // 🔥 evita duplicados
           }),
         });
 
@@ -309,14 +296,14 @@ useEffect(() => {
         }
 
         resultados.push({
-          total,
+          total: Number(totalItem),
           iva: ivaItem,
           categoria,
         });
       }
 
     } catch (err) {
-      console.error("Error procesando XML:", err);
+      console.error("❌ Error procesando XML:", err);
       continue;
     }
   }
