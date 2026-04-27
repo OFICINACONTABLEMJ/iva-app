@@ -114,55 +114,86 @@ export default function Historial() {
   // PDF
   // ============================
 
-  const generarPDF = async () => {
-  const element = document.getElementById("factura-pdf");
-  if (!element) return;
-
-  // mostrar fuera de pantalla
-  element.style.display = "block";
-  element.style.position = "absolute";
-  element.style.left = "-9999px";
-  element.style.top = "0";
-
-  await new Promise((r) => setTimeout(r, 300));
-
-  const canvas = await html2canvas(element, {
-    scale: 3,
-    useCORS: true,
-    backgroundColor: "#ffffff",
-  });
-
+  const generarPDF = () => {
   const pdf = new jsPDF("p", "mm", "a4");
 
-  const imgData = canvas.toDataURL("image/png");
+  let y = 20;
 
-  const imgWidth = 190;
-  const pageHeight = 297;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  // HEADER
+  pdf.setFontSize(16);
+  pdf.text("REPORTE DE IVA MENSUAL", 105, y, { align: "center" });
 
-  let y = 0;
-const pageContentHeight = 277; // 297 - márgenes
+  y += 10;
 
-while (y < imgHeight) {
-  if (y > 0) {
-    pdf.addPage();
-  }
+  pdf.setFontSize(10);
+  pdf.text(`Periodo: ${nombreMes} ${anio}`, 14, y);
 
-  pdf.addImage(
-    imgData,
-    "PNG",
-    10,
-    10 - y, // 🔥 mueve la imagen hacia arriba correctamente
-    imgWidth,
-    imgHeight
-  );
+  y += 10;
 
-  y += pageContentHeight;
-}
+  // TABLA HEADER
+  pdf.setFontSize(10);
+  pdf.text("#", 10, y);
+  pdf.text("Descripción", 20, y);
+  pdf.text("Categoría", 120, y);
+  pdf.text("Total", 170, y);
+
+  y += 5;
+
+  // LINEA
+  pdf.line(10, y, 200, y);
+
+  y += 5;
+
+  // VARIABLES
+  let pageHeight = 280;
+
+  compras.forEach((c, i) => {
+    // 🔥 SALTO DE PAGINA REAL
+    if (y > pageHeight) {
+      pdf.addPage();
+      y = 20;
+    }
+
+    pdf.text(String(i + 1), 10, y);
+    pdf.text(c.descripcion.substring(0, 40), 20, y);
+    pdf.text(c.categoria, 120, y);
+    pdf.text(`Q${Number(c.total).toFixed(2)}`, 170, y);
+
+    y += 6;
+  });
+
+  y += 5;
+
+  // TOTAL GENERAL
+  pdf.setFontSize(11);
+  pdf.text("TOTAL COMPRAS:", 120, y);
+  pdf.text(`Q${totalCompras.toFixed(2)}`, 170, y);
+
+  y += 10;
+
+  // 🔥 TOTALES POR CATEGORÍA
+  const totales: any = {};
+
+  compras.forEach((c) => {
+    if (!totales[c.categoria]) {
+      totales[c.categoria] = 0;
+    }
+    totales[c.categoria] += Number(c.total);
+  });
+
+  Object.keys(totales).forEach((cat) => {
+    if (y > pageHeight) {
+      pdf.addPage();
+      y = 20;
+    }
+
+    pdf.text(`TOTAL ${cat.toUpperCase()}:`, 120, y);
+    pdf.text(`Q${totales[cat].toFixed(2)}`, 170, y);
+
+    y += 6;
+  });
 
   pdf.save(`IVA_${mes}_${anio}.pdf`);
-
-  element.style.display = "none";
 };
 
   // ============================
