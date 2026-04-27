@@ -25,10 +25,25 @@ export default function Perfil() {
 
   // 🔄 cargar usuario
   useEffect(() => {
-  fetch("/api/auth/me", { credentials: "include" })
-    .then((res) => res.json())
-    .then((data) => {
-      const u = data.user || data; // 🔥 soporta ambos formatos
+  const cargarUsuario = async () => {
+    try {
+      const res = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        // 🔒 si no está logueado, lo mandas al login
+        if (res.status === 401) {
+          setUser(null);
+          router.push("/login");
+          return;
+        }
+
+        throw new Error("Error al obtener usuario");
+      }
+
+      const data = await res.json();
+      const u = data.user || data;
 
       if (u) {
         setNombre(u.nombre || "");
@@ -36,10 +51,16 @@ export default function Perfil() {
         setAvatar(u.avatar || "");
         setUser(u);
       }
-    })
-    .finally(() => {
+
+    } catch (error) {
+      console.error("Error cargando usuario:", error);
+      setMsg("❌ Error al cargar perfil");
+    } finally {
       setLoading(false);
-    });
+    }
+  };
+
+  cargarUsuario();
 }, []);
 
   // 📷 seleccionar imagen
