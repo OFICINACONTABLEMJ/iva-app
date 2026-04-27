@@ -41,6 +41,8 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [bloqueado, setBloqueado] = useState(false);
 
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [clienteId, setClienteId] = useState("");
 
   const [loading, setLoading] = useState(true);
   
@@ -76,6 +78,15 @@ export default function Home() {
 
     setUser(null);
   };
+  const cargarClientes = async () => {
+  const res = await fetch("/api/clientes");
+  const data = await res.json();
+  setClientes(data);
+};
+
+useEffect(() => {
+  cargarClientes();
+}, []);
 
   useEffect(() => {
   cargarCompras();
@@ -153,6 +164,7 @@ useEffect(() => {
         iva,
         mes,
         anio,
+        clienteId,
       }),
     });
 
@@ -404,6 +416,8 @@ console.log("XML cargados:", comprasXML.cantidad);
   const totalIVAXML = comprasXML.total/1.12 * 0.12
   // const cantidadComprasXML = comprasXML.cantidad
 
+  
+
   // 🧮 CALCULAR
   const calcular = () => {
     if (ventas === "" || Number(ventas) <= 0) {
@@ -553,6 +567,41 @@ if (!user) {
     onChange={(e) => setAnio(Number(e.target.value))}
     className="p-3 border border-gray-200 rounded-lg w-1/2 focus:ring-2 focus:ring-blue-500 outline-none"
   />
+</div>
+<div className="bg-white p-4 rounded-xl shadow mb-4">
+  <label className="text-sm font-semibold">Cliente</label>
+
+  <select
+    value={clienteId}
+    onChange={(e) => setClienteId(e.target.value)}
+    className="w-full mt-2 p-2 border rounded-lg"
+  >
+    <option value="">Seleccionar cliente</option>
+
+    {clientes.map((c) => (
+      <option key={c.id} value={c.id}>
+        {c.nombre} - {c.nit}
+      </option>
+    ))}
+  </select>
+
+  <button
+    onClick={() => {
+      const nombre = prompt("Nombre del cliente");
+      const nit = prompt("NIT del cliente");
+
+      if (!nombre || !nit) return;
+
+      fetch("/api/clientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, nit }),
+      }).then(cargarClientes);
+    }}
+    className="mt-2 text-blue-500 text-sm"
+  >
+    + Nuevo cliente
+  </button>
 </div>
 
       {/* VENTAS */}

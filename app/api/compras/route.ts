@@ -19,6 +19,7 @@ export async function POST(req: Request) {
       uuid,
       uuidFactura,
       deducible,
+      clienteId,
     } = body;
 
     // 🍪 COOKIE

@@ -1,26 +1,31 @@
-  generator client {
-    provider = "prisma-client-js"
-  }
+generator client {
+  provider = "prisma-client-js"
+}
 
-  datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-  }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-  model Usuario {
-    id        String   @id @default(cuid())
-    email     String   @unique
-    password  String
-    nombre    String
-    avatar    String?
-    createdAt DateTime @default(now())
+model Usuario {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  nombre    String
+  avatar    String?
+  nit       String
+  createdAt DateTime @default(now())
 
-    compras  Compra[]
-    logo     String?
-    facturas Factura[]
-  }
+  compras  Compra[]
+  facturas Factura[]
 
-  model Compra {
+  // 🔥 AGREGA ESTO
+  clientes Cliente[]
+
+  logo String?
+}
+
+model Compra {
   id          String @id @default(cuid())
   descripcion String
   categoria   String
@@ -35,69 +40,83 @@
   usuarioId String
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
-  uuid String
-  uuidFactura   String
-  deducible     Boolean @default(true)
+  // 🔥 NUEVO
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+
+  uuid        String
+  uuidFactura String
+  deducible   Boolean @default(true)
 
   @@unique([uuid, usuarioId])
   @@index([uuidFactura])
-  
 }
 
-  model Resumen {
-    id     String @id @default(cuid())
-    userId String
-    mes    Int
-    anio   Int
+model Resumen {
+  id     String @id @default(cuid())
+  userId String
+  mes    Int
+  anio   Int
 
-    ventas      Float @default(0)
-    debito      Float
-    credito     Float
-    iva         Float
-    retenciones Float @default(0)
+  ventas      Float @default(0)
+  debito      Float
+  credito     Float
+  iva         Float
+  retenciones Float @default(0)
 
-    bloqueado Boolean  @default(true)
-    createdAt DateTime @default(now())
+  bloqueado Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-    @@unique([userId, mes, anio])
-  }
+  @@unique([userId, mes, anio])
+}
 
-  model MesCerrado {
-    id        String @id @default(cuid())
-    usuarioId String
-    mes       Int
-    anio      Int
+model MesCerrado {
+  id        String @id @default(cuid())
+  usuarioId String
+  mes       Int
+  anio      Int
 
-    createdAt DateTime @default(now())
+  createdAt DateTime @default(now())
 
-    @@unique([usuarioId, mes, anio])
-  }
+  @@unique([usuarioId, mes, anio])
+}
 
-  model Factura {
-    id           String   @id @default(cuid())
+model Factura {
+  id String @id @default(cuid())
 
-    descripcion  String
-    serie        String?
-    numero       String?
+  descripcion String
+  serie       String?
+  numero      String?
 
-    nit          String?      // si lo usas general
-    emisorNIT    String       // 🔥 AGREGAR
-    receptorNIT  String       // 🔥 AGREGAR
+  nit         String? // si lo usas general
+  emisorNIT   String // 🔥 AGREGAR
+  receptorNIT String // 🔥 AGREGAR
 
-    total        Float
-    base         Float
-    iva          Float
+  total Float
+  base  Float
+  iva   Float
 
-    categoria    String?
-    tipo         String?
+  categoria String?
+  tipo      String?
 
-    deducible    Boolean @default(true) // 🔥 AGREGA ESTO
+  deducible Boolean @default(true) // 🔥 AGREGA ESTO
 
-    mes          Int
-    anio         Int
+  mes  Int
+  anio Int
 
-    usuarioId    String
-    usuario      Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
-    createdAt    DateTime @default(now())
-  }
+  createdAt DateTime @default(now())
+}
+
+model Cliente {
+  id        String   @id @default(cuid())
+  nombre    String
+  nit       String
+
+  usuarioId String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  compras   Compra[]
+}
