@@ -191,7 +191,13 @@ export default function Perfil() {
   <div className="w-20 h-20 rounded-full bg-gray-300 animate-pulse" />
 ) : (
   <img
-  src={preview || avatar || "/default-avatar.png"}
+  src={
+    preview
+      ? preview
+      : avatar
+      ? avatar + "?t=" + Date.now()
+      : "/default-avatar.png"
+  }
   onError={(e) => {
     (e.target as HTMLImageElement).src = "/default-avatar.png";
   }}
@@ -226,14 +232,11 @@ export default function Perfil() {
     setEmail(value);
   }}
   onBlur={() => {
-    // 🔥 normaliza solo cuando el usuario termina de escribir
     setEmail((prev) => prev.trim().toLowerCase());
   }}
   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
   placeholder="Correo"
-  required
 />
-
           <hr />
 
           <h2 className="font-semibold">Cambiar contraseña</h2>
