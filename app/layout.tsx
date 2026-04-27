@@ -1,6 +1,7 @@
 import "./globals.css";
 import { UserProvider } from "./context/UserContext";
 import Sidebar from "@/app/components/Sidebar";
+import { Analytics } from "@vercel/analytics/react";
 
 export default function RootLayout({
   children,
@@ -14,8 +15,8 @@ export default function RootLayout({
         <UserProvider>
           <div className="flex min-h-screen">
 
-            {/* 🔥 SIDEBAR CLIENT */}
-            <Sidebar/>
+            {/* SIDEBAR */}
+            <Sidebar />
 
             {/* CONTENIDO */}
             <div className="flex-1 p-6">
@@ -24,6 +25,9 @@ export default function RootLayout({
 
           </div>
         </UserProvider>
+
+        {/* 🔥 AQUÍ VA ANALYTICS */}
+        <Analytics />
 
       </body>
     </html>
