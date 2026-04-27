@@ -115,6 +115,31 @@ export default function Historial() {
   // PDF
   // ============================
 
+  const borrarMes = async () => {
+  if (!confirm("¿Eliminar todo el mes?")) return;
+
+  const res = await fetch("/api/resumen/delete", {
+    method: "DELETE",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ mes, anio }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.error);
+    return;
+  }
+
+  alert("Mes eliminado");
+
+  await cargarCompras();
+  await cargarResumen();
+};
+
 const generarPDF = () => {
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -257,7 +282,9 @@ const generarPDF = () => {
 
   // =========================
   // TOTALES
-  // =========================
+  // =========================+
+
+  // BAJAR HEADER SEGUNDA PAGINA
   let finalY = (pdf as any).lastAutoTable.finalY + 20;
 
 // 🔥 SI SE FUE MUY ABAJO → NUEVA PÁGINA
@@ -434,6 +461,13 @@ finalY += 6;
           ) : (
             <p>No hay datos</p>
           )}
+
+          <button
+          onClick={borrarMes}
+          className="w-full bg-red-600 text-white py-2 rounded"
+          >
+          🗑️ Eliminar mes
+          </button>
 
           <button
             onClick={generarPDF}
