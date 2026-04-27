@@ -38,9 +38,27 @@ export default function Historial() {
   const [loadingCompras, setLoadingCompras] = useState(false);
   const [loadingResumen, setLoadingResumen] = useState(false);
 
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [clienteId, setClienteId] = useState<string>("");
+
   // ============================
   // API CALLS
   // ============================
+  const cargarClientes = async () => {
+  try {
+    const res = await fetch("/api/clientes", {
+      credentials: "include",
+    });
+
+    if (!res.ok) return;
+
+    const data = await res.json();
+    setClientes(data);
+
+  } catch (err) {
+    console.error("Error cargando clientes:", err);
+  }
+};
 
   const cargarCompras = async () => {
     try {
@@ -91,6 +109,7 @@ export default function Historial() {
   };
 
   useEffect(() => {
+    cargarClientes();
     cargarCompras();
     cargarResumen();
   }, [mes, anio]);
@@ -139,6 +158,9 @@ export default function Historial() {
   await cargarCompras();
   await cargarResumen();
 };
+const clienteSeleccionado = clientes.find(
+  (c) => c.id === clienteId
+);
 
 const generarPDF = () => {
   const pdf = new jsPDF("p", "mm", "a4");
@@ -162,6 +184,22 @@ const generarPDF = () => {
     pdf.setTextColor(100);
     pdf.text("Sistema de control fiscal", 32, 20);
 
+    // 🔥 CLIENTE
+pdf.setFontSize(9);
+pdf.setTextColor(0);
+
+pdf.text(
+  `Cliente: ${clienteSeleccionado?.nombre || "-"}`,
+  32,
+  25
+);
+
+pdf.text(
+  `NIT: ${clienteSeleccionado?.nit || "-"}`,
+  32,
+  30
+);
+
     pdf.setFontSize(9);
     pdf.setTextColor(0);
     pdf.text(`Fecha: ${new Date().toLocaleDateString()}`, pageWidth - 60, 15);
@@ -169,7 +207,7 @@ const generarPDF = () => {
 
     pdf.setDrawColor(79, 70, 229);
     pdf.setLineWidth(0.8);
-    pdf.line(14, 27, pageWidth - 14, 27);
+    pdf.line(14, 35, pageWidth - 14, 35);
   };
 
   // =========================
@@ -193,9 +231,11 @@ const generarPDF = () => {
   // =========================
   pdf.setFontSize(14);
   pdf.setTextColor(0);
-  pdf.text("REPORTE DE IVA MENSUAL", pageWidth / 2, 35, {
+  pdf.text("REPORTE DE IVA MENSUAL", pageWidth / 2, 45, {
     align: "center",
   });
+
+  
 
   // =========================
   // RESUMEN
@@ -222,7 +262,7 @@ const generarPDF = () => {
   // IVA
   // =========================
   pdf.setFillColor(238, 242, 255);
-  pdf.roundedRect(14, 62, pageWidth - 28, 18, 4, 4, "F");
+  pdf.roundedRect(14, 72, pageWidth - 28, 18, 4, 4, "F");
 
   pdf.setFontSize(9);
   pdf.setTextColor(80);
@@ -245,7 +285,7 @@ const generarPDF = () => {
   ]);
 
   autoTable(pdf, {
-    startY: 85,
+    startY: 95,
     head: [["#", "Descripción", "Categoría", "Total"]],
     body: rows,
 
@@ -381,6 +421,7 @@ finalY += 6;
           >
             ← Volver
           </button>
+          
 
           <h1 className="text-2xl font-bold text-white">
             📊 Historial mensual
@@ -525,6 +566,7 @@ finalY += 6;
             REPORTE DE IVA MENSUAL
           </h2>
         </div>
+        
 
         {/* RESUMEN PDF */}
         <div style={{
