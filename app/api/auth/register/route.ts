@@ -17,43 +17,65 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("DATA:", data);
-
     const { nombre, email, password } = data;
 
-    // 🔹 Validación básica
-    if (!nombre || !email || !password) {
+    // 🔹 LIMPIAR DATOS
+    const nombreClean = (nombre || "").trim();
+    const emailClean = (email || "").trim().toLowerCase();
+
+    // 🔹 VALIDACIÓN CAMPOS
+    if (!nombreClean || !emailClean || !password) {
       return NextResponse.json(
         { error: "Faltan campos" },
         { status: 400 }
       );
     }
 
-    // 🔹 Verificar si ya existe usuario
-    const existingUser = await prisma.usuario.findUnique({
-      where: { email },
-    });
+    // 🔹 VALIDAR FORMATO EMAIL
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    if (existingUser) {
+    if (!emailRegex.test(emailClean)) {
       return NextResponse.json(
-        { error: "El usuario ya existe" },
+        { error: "Correo inválido" },
         { status: 400 }
       );
     }
 
-    // 🔹 Encriptar contraseña
+    // 🔹 VALIDAR PASSWORD (opcional pero recomendado)
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: "La contraseña debe tener al menos 6 caracteres" },
+        { status: 400 }
+      );
+    }
+
+    // 🔍 VERIFICAR SI YA EXISTE (CASE INSENSITIVE)
+    const existingUser = await prisma.usuario.findFirst({
+      where: {
+        email: emailClean,
+      },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "El correo ya está en uso" },
+        { status: 400 }
+      );
+    }
+
+    // 🔐 ENCRIPTAR PASSWORD
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🔹 Crear usuario
+    // 🔥 CREAR USUARIO
     const user = await prisma.usuario.create({
       data: {
-        nombre,
-        email,
+        nombre: nombreClean,
+        email: emailClean,
         password: hashedPassword,
       },
     });
 
-    return NextResponse.json(user);
+    return NextResponse.json({ ok: true });
 
   } catch (error) {
     console.error("REGISTER ERROR:", error);
