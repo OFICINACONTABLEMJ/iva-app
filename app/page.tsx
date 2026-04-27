@@ -336,6 +336,44 @@ useEffect(() => {
 
   e.target.value = "";
 };
+
+const limpiarXML = async () => {
+  if (bloqueado) {
+    alert("Mes bloqueado");
+    return;
+  }
+
+  const ok = window.confirm("¿Eliminar todas las compras XML del mes?");
+  if (!ok) return;
+
+  try {
+    const res = await fetch("/api/compras/xml", {
+      method: "DELETE",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ mes, anio }),
+    });
+
+    if (!res.ok) {
+      alert("Error al limpiar XML");
+      return;
+    }
+
+    setComprasXML({
+      total: 0,
+      iva: 0,
+      cantidad: 0,
+    });
+
+    await cargarCompras();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error de conexión");
+  }
+};
 console.log("XML cargados:", comprasXML.cantidad);
 
   const eliminar = async (id: string) => {
@@ -585,22 +623,14 @@ if (!user) {
 
   {/* 🔥 BOTÓN LIMPIAR */}
   {comprasXML.cantidad > 0 && (
-    <button
-      disabled={bloqueado}
-      onClick={() => {
-        if (confirm("¿Eliminar XML cargados?")) {
-          setComprasXML({
-            total: 0,
-            iva: 0,
-            cantidad: 0,
-          });
-        }
-      }}
-      className="text-sm text-red-500 hover:text-red-600 transition"
-    >
-      Limpiar
-    </button>
-  )}
+  <button
+    disabled={bloqueado}
+    onClick={limpiarXML}
+    className="mt-2 text-sm text-red-500 hover:text-red-600 transition"
+  >
+    🗑 Limpiar XML
+  </button>
+)}
 </div>
 
   {/* BOTÓN PRINCIPAL */}
