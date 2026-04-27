@@ -119,4 +119,5 @@ model Cliente {
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
   compras   Compra[]
+  createdAt DateTime @default(now())
 }
