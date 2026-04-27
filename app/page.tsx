@@ -5,7 +5,18 @@ import { useRouter } from "next/navigation";
 import { useUser } from "./context/UserContext";
 import jsPDF from "jspdf";
 
+type XMLResumen = {
+  total: number;
+  iva: number;
+  cantidad: number;
+};
 export default function Home() {
+
+  const [comprasXML, setComprasXML] = useState<XMLResumen>({
+  total: 0,
+  iva: 0,
+  cantidad: 0,
+});
   const router = useRouter();
   const { user, setUser } = useUser();
 
@@ -32,9 +43,7 @@ export default function Home() {
 
 
   const [loading, setLoading] = useState(true);
-
-  // 🔥 XML COMPRAS
-  const [comprasXML, setComprasXML] = useState<any[]>([]);
+  
   const xmlRef = useRef<HTMLInputElement>(null);
 
   // 🔄 CARGAR COMPRAS
@@ -56,6 +65,7 @@ export default function Home() {
     const data = await res.json();
     setBloqueado(!!data?.bloqueado);
   };
+  
 
   // 🔐 LOGOUT
   const logout = async () => {
@@ -70,7 +80,11 @@ export default function Home() {
   useEffect(() => {
   cargarCompras();
   verificarBloqueo();
-  setComprasXML([]); // solo limpiar al cambiar mes
+  setComprasXML({
+  total: 0,
+  iva: 0,
+  cantidad: 0,
+});
 }, [mes, anio]);
 
 useEffect(() => {
@@ -170,46 +184,38 @@ useEffect(() => {
   const files = Array.from(e.target.files ?? []) as File[];
   if (files.length === 0) return;
 
+  let totalXML = 0;
+  let ivaXML = 0;
+
   const batch: any[] = [];
-  const facturasProcesadas: string[] = [];
 
-  // 🔥 CATEGORIZADOR PRO
-  const detectarCategoria = (desc: string, emisor: string) => {
-    const t = desc.toLowerCase();
-    const p = emisor.toLowerCase();
-
-    if (/diesel|gasolina|super|regular|premium/.test(t) || /texaco|shell|puma/.test(p)) {
-      return "Combustible";
-    }
-
-    if (/agua|luz|energia|internet|telefono/.test(t) || /claro|tigo|energuate/.test(p)) {
-      return "Servicios";
-    }
-
-    if (/supermercado|despensa|alimento|comida/.test(t)) {
-      return "Gastos personales";
-    }
-
-    return "Otras compras";
-  };
-
-  // 🔥 DETECTOR NO DEDUCIBLE
-  const esNoDeducible = (desc: string, emisor: string) => {
+  // 🔥 MEDICAMENTOS (NO DEDUCIBLE)
+  const esMedicamento = (desc: string, emisor: string) => {
     const t = desc.toLowerCase();
     const p = emisor.toLowerCase();
 
     return (
       /farmacia|medicamento|capsula|jarabe|vitamina|acetaminofen|ibuprofeno/.test(t) ||
-      /farmacia|cruz verde|batres|galeno/.test(p) ||
-      /supermercado|walmart|la torre|despensa familiar/.test(p)
+      /farmacia|cruz verde|batres|galeno/.test(p)
     );
+  };
+
+  // 🔥 CATEGORÍAS
+  const detectarCategoria = (desc: string, emisor: string) => {
+    const t = desc.toLowerCase();
+    const p = emisor.toLowerCase();
+
+    if (/diesel|gasolina|super|regular|premium/.test(t)) return "Combustible";
+    if (/internet|luz|agua|telefono|energia/.test(t)) return "Servicios";
+
+    return "Otras compras";
   };
 
   for (const file of files) {
     try {
       const buffer = await file.arrayBuffer();
 
-      // 🔥 ENCODING AUTO
+      // 🔥 AUTO ENCODING
       let text = new TextDecoder("utf-8").decode(buffer);
       if (text.includes("�")) {
         text = new TextDecoder("iso-8859-1").decode(buffer);
@@ -217,28 +223,19 @@ useEffect(() => {
 
       const xml = new DOMParser().parseFromString(text, "text/xml");
 
-      if (xml.getElementsByTagName("parsererror").length > 0) {
-        console.error("XML inválido:", file.name);
-        continue;
-      }
-
       // 🔥 UUID FACTURA
       const uuidFactura =
         xml.getElementsByTagName("dte:NumeroAutorizacion")[0]?.textContent ||
         xml.getElementsByTagName("NumeroAutorizacion")[0]?.textContent ||
-        "";
+        crypto.randomUUID();
 
-      if (!uuidFactura) continue;
-
-      // 🔥 evitar duplicados en el mismo lote
-      if (facturasProcesadas.includes(uuidFactura)) continue;
-      facturasProcesadas.push(uuidFactura);
-
+      // 🔥 EMISOR
       const emisor =
         xml.getElementsByTagName("dte:Emisor")[0]?.getAttribute("NombreComercial") ||
         xml.getElementsByTagName("Emisor")[0]?.getAttribute("NombreComercial") ||
         "";
 
+      // 🔥 ITEMS
       const items =
         xml.getElementsByTagName("dte:Item").length > 0
           ? xml.getElementsByTagName("dte:Item")
@@ -254,6 +251,7 @@ useEffect(() => {
 
         if (!descripcion) continue;
 
+        // ❌ IGNORAR LÍNEAS DE IVA
         if (descripcion.toLowerCase().includes("iva")) continue;
 
         const total =
@@ -283,7 +281,13 @@ useEffect(() => {
         }
 
         const categoria = detectarCategoria(descripcion, emisor);
-        const noDeducible = esNoDeducible(descripcion, emisor);
+        const esMed = esMedicamento(descripcion, emisor);
+
+        // 🔥 SUMATORIA SOLO SI ES DEDUCIBLE
+        if (!esMed) {
+          totalXML += Number(total);
+          ivaXML += iva;
+        }
 
         batch.push({
           descripcion: "[XML] " + descripcion,
@@ -295,17 +299,18 @@ useEffect(() => {
           anio,
           uuid: uuidFactura + "-" + i,
           uuidFactura,
-          deducible: !noDeducible,
+          deducible: !esMed,
         });
       }
+
     } catch (err) {
       console.error("Error XML:", file.name, err);
     }
   }
 
-  // 🔥 ENVÍO MASIVO
+  // 🔥 ENVIAR TODO DE UNA (OPTIMIZADO)
   if (batch.length > 0) {
-    await fetch("/api/compras/batch", {
+    const res = await fetch("/api/compras/batch", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -313,12 +318,25 @@ useEffect(() => {
       credentials: "include",
       body: JSON.stringify(batch),
     });
+
+    if (!res.ok) {
+      alert("Error al subir XML");
+      return;
+    }
   }
 
+  // 🔥 ACTUALIZAR UI
+  setComprasXML({
+    total: totalXML,
+    iva: ivaXML,
+    cantidad: batch.length,
+  });
+
   await cargarCompras();
+
   e.target.value = "";
 };
-console.log("XML cargados:", comprasXML.length);
+console.log("XML cargados:", comprasXML.cantidad);
 
   const eliminar = async (id: string) => {
   const res = await fetch(`/api/compras/${id}`, {
@@ -344,8 +362,9 @@ console.log("XML cargados:", comprasXML.length);
     setRetenciones("");
   };
 
-  const totalComprasXML = comprasXML.reduce((acc, i) => acc + i.total, 0);
-  const totalIVAXML = comprasXML.reduce((acc, i) => acc + i.iva, 0);
+  const totalComprasXML = comprasXML.total
+  const totalIVAXML = comprasXML.total/1.12 * 0.12
+  // const cantidadComprasXML = comprasXML.cantidad
 
   // 🧮 CALCULAR
   const calcular = () => {
@@ -565,12 +584,16 @@ if (!user) {
   </h2>
 
   {/* 🔥 BOTÓN LIMPIAR */}
-  {comprasXML.length > 0 && (
+  {comprasXML.cantidad > 0 && (
     <button
       disabled={bloqueado}
       onClick={() => {
         if (confirm("¿Eliminar XML cargados?")) {
-          setComprasXML([]);
+          setComprasXML({
+            total: 0,
+            iva: 0,
+            cantidad: 0,
+          });
         }
       }}
       className="text-sm text-red-500 hover:text-red-600 transition"
@@ -600,13 +623,18 @@ if (!user) {
 
   {/* INFO */}
   <div className="mt-3 text-sm text-gray-600">
-    <p>Total XML: <b>Q{totalComprasXML.toFixed(2)}</b></p>
-    <p>IVA XML: <b>Q{totalIVAXML.toFixed(2)}</b></p>
+  <p>
+    Total XML: <b>Q{comprasXML.total.toFixed(2)}</b>
+  </p>
 
-    <p className="mt-2 text-xs text-gray-500">
-      COMPRAS CARGADAS: <b>{comprasXML.length}</b>
-    </p>
-  </div>
+  <p>
+    IVA XML: <b>Q{comprasXML.iva.toFixed(2)}</b>
+  </p>
+
+  <p className="mt-2 text-xs text-gray-500">
+    COMPRAS CARGADAS: <b>{comprasXML.cantidad}</b>
+  </p>
+</div>
 </div>
 
       {/* COMPRAS */}
