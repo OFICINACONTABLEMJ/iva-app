@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 // 🔥 USA EL MISMO SECRET EN TODA LA APP
 const SECRET = process.env.JWT_SECRET!;
-console.log("SECRET:", SECRET);
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
