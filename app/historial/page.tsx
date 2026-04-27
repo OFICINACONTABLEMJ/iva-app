@@ -258,15 +258,20 @@ const generarPDF = () => {
   // =========================
   // TOTALES
   // =========================
-  let finalY = (pdf as any).lastAutoTable.finalY + 50;
+  let finalY = (pdf as any).lastAutoTable.finalY + 20;
 
-  // 🔥 SI NO CABE → NUEVA PÁGINA
-  if (finalY > 260) {
-    pdf.addPage();
-    drawHeader();
-    drawFooter();
-    finalY = 30;
-  }
+// 🔥 SI SE FUE MUY ABAJO → NUEVA PÁGINA
+if (finalY > 260) {
+  pdf.addPage();
+  drawHeader();
+  drawFooter();
+  finalY = 50;
+}
+
+// 🔥 SI CAYÓ EN NUEVA PÁGINA MUY ARRIBA → BAJARLO
+if (finalY < 40) {
+  finalY = 50;
+}
 
   const totales: any = {};
   compras.forEach((c) => {
