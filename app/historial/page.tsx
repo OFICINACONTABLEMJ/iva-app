@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
 
 type Compra = {
@@ -114,64 +115,97 @@ export default function Historial() {
   // PDF
   // ============================
 
-  const generarPDF = () => {
+const generarPDF = () => {
   const pdf = new jsPDF("p", "mm", "a4");
 
-  let y = 20;
+  // =========================
+  // 🔥 HEADER BONITO
+  // =========================
+  pdf.setFontSize(14);
+  pdf.setTextColor(40);
 
-  // HEADER
-  pdf.setFontSize(16);
-  pdf.text("REPORTE DE IVA MENSUAL", 105, y, { align: "center" });
-
-  y += 10;
-
+  pdf.text("OFICINA CONTABLE MJ", 14, 15);
   pdf.setFontSize(10);
-  pdf.text(`Periodo: ${nombreMes} ${anio}`, 14, y);
+  pdf.text("Sistema de control fiscal", 14, 20);
 
-  y += 10;
+  pdf.text(`Fecha: ${new Date().toLocaleDateString()}`, 150, 15);
+  pdf.text(`Periodo: ${nombreMes} ${anio}`, 150, 20);
 
-  // TABLA HEADER
+  // línea
+  pdf.setDrawColor(79, 70, 229);
+  pdf.line(14, 23, 196, 23);
+
+  // =========================
+  // TITULO
+  // =========================
+  pdf.setFontSize(13);
+  pdf.text("REPORTE DE IVA MENSUAL", 105, 32, { align: "center" });
+
+  // =========================
+  // RESUMEN
+  // =========================
   pdf.setFontSize(10);
-  pdf.text("#", 10, y);
-  pdf.text("Descripción", 20, y);
-  pdf.text("Categoría", 120, y);
-  pdf.text("Total", 170, y);
 
-  y += 5;
+  pdf.text(`Ventas: Q${resumen?.ventas?.toFixed(2)}`, 14, 42);
+  pdf.text(`Débito: Q${resumen?.debito?.toFixed(2)}`, 60, 42);
+  pdf.text(`Crédito: Q${resumen?.credito?.toFixed(2)}`, 110, 42);
+  pdf.text(`Retenciones: Q${resumen?.retenciones?.toFixed(2)}`, 160, 42);
 
-  // LINEA
-  pdf.line(10, y, 200, y);
+  // =========================
+  // IVA GRANDE
+  // =========================
+  pdf.setFontSize(12);
+  pdf.setTextColor(220, 38, 38);
 
-  y += 5;
+  pdf.text(
+    `IVA A PAGAR: Q${resumen?.iva?.toFixed(2)}`,
+    105,
+    52,
+    { align: "center" }
+  );
 
-  // VARIABLES
-  let pageHeight = 280;
+  // =========================
+  // TABLA
+  // =========================
+  const rows = compras.map((c, i) => [
+    i + 1,
+    c.descripcion,
+    c.categoria,
+    `Q${Number(c.total).toFixed(2)}`,
+  ]);
 
-  compras.forEach((c, i) => {
-    // 🔥 SALTO DE PAGINA REAL
-    if (y > pageHeight) {
-      pdf.addPage();
-      y = 20;
-    }
+  autoTable(pdf, {
+    startY: 60,
+    head: [["#", "Descripción", "Categoría", "Total"]],
+    body: rows,
 
-    pdf.text(String(i + 1), 10, y);
-    pdf.text(c.descripcion.substring(0, 40), 20, y);
-    pdf.text(c.categoria, 120, y);
-    pdf.text(`Q${Number(c.total).toFixed(2)}`, 170, y);
+    theme: "grid",
 
-    y += 6;
+    styles: {
+      fontSize: 9,
+    },
+
+    headStyles: {
+      fillColor: [243, 244, 246],
+      textColor: 20,
+    },
+
+    didDrawPage: (data) => {
+      // footer
+      pdf.setFontSize(8);
+      pdf.text(
+        `Página ${pdf.getNumberOfPages()}`,
+        180,
+        290
+      );
+    },
   });
 
-  y += 5;
-
-  // TOTAL GENERAL
-  pdf.setFontSize(11);
-  pdf.text("TOTAL COMPRAS:", 120, y);
-  pdf.text(`Q${totalCompras.toFixed(2)}`, 170, y);
-
-  y += 10;
-
+  // =========================
   // 🔥 TOTALES POR CATEGORÍA
+  // =========================
+  let finalY = (pdf as any).lastAutoTable.finalY + 10;
+
   const totales: any = {};
 
   compras.forEach((c) => {
@@ -181,16 +215,19 @@ export default function Historial() {
     totales[c.categoria] += Number(c.total);
   });
 
+  pdf.setFontSize(10);
+  pdf.setTextColor(0);
+
+  pdf.text(`TOTAL COMPRAS: Q${totalCompras.toFixed(2)}`, 140, finalY);
+  finalY += 6;
+
   Object.keys(totales).forEach((cat) => {
-    if (y > pageHeight) {
-      pdf.addPage();
-      y = 20;
-    }
-
-    pdf.text(`TOTAL ${cat.toUpperCase()}:`, 120, y);
-    pdf.text(`Q${totales[cat].toFixed(2)}`, 170, y);
-
-    y += 6;
+    pdf.text(
+      `TOTAL ${cat.toUpperCase()}: Q${totales[cat].toFixed(2)}`,
+      140,
+      finalY
+    );
+    finalY += 6;
   });
 
   pdf.save(`IVA_${mes}_${anio}.pdf`);
