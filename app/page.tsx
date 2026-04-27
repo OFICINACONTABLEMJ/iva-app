@@ -160,92 +160,101 @@ useEffect(() => {
 
   // 🔥 XML COMPRAS
   const handleXMLCompras = async (e: any) => {
-  // 🔒 BLOQUEO
   if (bloqueado) {
-    alert("Mes bloqueado, no puedes subir XML");
+    alert("Mes bloqueado");
     return;
   }
 
-  const files = e.target.files;
-  if (!files || files.length === 0) return;
+  const files = Array.from(e.target.files || []) as File[];
+  if (files.length === 0) return;
 
   const resultados: any[] = [];
+  const batch: any[] = [];
+  const uuidsSet = new Set(); // 🔥 evitar duplicados reales
 
-  // 🔥 DETECTOR DE CATEGORÍA
+  // 🔥 DETECTOR MEJORADO
   const detectarCategoria = (descripcion: string, emisor: string) => {
     const texto = (descripcion || "").toLowerCase();
     const proveedor = (emisor || "").toLowerCase();
 
     if (
-      texto.includes("diesel") ||
-      texto.includes("gasolina") ||
-      texto.includes("super") ||
-      texto.includes("regular") ||
-      texto.includes("premium") ||
-      texto.includes("vp") ||
-      proveedor.includes("combustible") ||
-      proveedor.includes("texaco") ||
-      proveedor.includes("shell")
-    ) {
-      return "Combustible";
-    }
+      /diesel|gasolina|super|regular|premium|vp/.test(texto) ||
+      /texaco|shell|puma|uno/.test(proveedor)
+    ) return "Combustible";
 
     if (
-      texto.includes("agua") ||
-      texto.includes("luz") ||
-      texto.includes("energia") ||
-      texto.includes("electricidad") ||
-      texto.includes("internet") ||
-      texto.includes("cable") ||
-      texto.includes("telefono") ||
-      texto.includes("servicio") ||
-      proveedor.includes("claro") ||
-      proveedor.includes("tigo") ||
-      proveedor.includes("energuate")
-    ) {
-      return "Servicios";
-    }
+      /agua|luz|energia|electricidad|internet|cable|telefono|servicio/.test(texto) ||
+      /claro|tigo|energuate/.test(proveedor)
+    ) return "Servicios";
 
     return "Otras compras";
   };
 
-  for (const file of Array.from(files) as File[]) {
+  // 🔥 FILTRO MEDICAMENTOS
+  const esMedicamento = (descripcion: string, emisor: string) => {
+    const texto = descripcion.toLowerCase();
+    const proveedor = emisor.toLowerCase();
+
+    return (
+      /farmacia|medicamento|tablet|capsula|jarabe|vitamina|acetaminofen|ibuprofeno/.test(texto) ||
+      /farmacia|cruz verde|galeno|batres/.test(proveedor)
+    );
+  };
+
+  for (const file of files) {
     try {
       const buffer = await file.arrayBuffer();
-      const decoder = new TextDecoder("iso-8859-1"); // 🔥 CLAVE
-      const text = decoder.decode(buffer);
+
+      // 🔥 AUTO-DETECTAR ENCODING
+      let text = new TextDecoder("utf-8").decode(buffer);
+      if (text.includes("�")) {
+        text = new TextDecoder("iso-8859-1").decode(buffer);
+      }
+
       const xml = new DOMParser().parseFromString(text, "text/xml");
 
-      // 🔥 UUID
-      const auth =
-        xml.getElementsByTagName("dte:NumeroAutorizacion")[0] ||
-        xml.getElementsByTagName("NumeroAutorizacion")[0];
+      // ❌ XML inválido
+      if (xml.getElementsByTagName("parsererror").length > 0) {
+        console.error("XML inválido:", file.name);
+        continue;
+      }
 
-      const uuid = auth?.textContent?.trim() || "";
+      // 🔥 UUID REAL
+      const uuid =
+        xml.getElementsByTagName("dte:NumeroAutorizacion")[0]?.textContent ||
+        xml.getElementsByTagName("NumeroAutorizacion")[0]?.textContent ||
+        "";
 
-      // 🔥 EMISOR
+      if (!uuid || uuidsSet.has(uuid)) {
+        continue; // 🔥 evita duplicados
+      }
+      uuidsSet.add(uuid);
+
       const emisor =
         xml.getElementsByTagName("dte:Emisor")[0]?.getAttribute("NombreComercial") ||
         xml.getElementsByTagName("Emisor")[0]?.getAttribute("NombreComercial") ||
         "";
 
-      // 🔥 OBTENER ITEMS (CLAVE)
       const items =
         xml.getElementsByTagName("dte:Item").length > 0
           ? xml.getElementsByTagName("dte:Item")
           : xml.getElementsByTagName("Item");
 
-      // 🚀 RECORRER CADA ITEM
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
 
         const descripcion =
           item.getElementsByTagName("dte:Descripcion")[0]?.textContent ||
           item.getElementsByTagName("Descripcion")[0]?.textContent ||
-          "Item XML";
-          if (descripcion.toLowerCase().includes("iva")) {
-         continue;
-        } 
+          "Item";
+
+        if (!descripcion) continue;
+
+        // 🔥 IGNORAR IVA LINEAS
+        if (descripcion.toLowerCase().includes("iva")) continue;
+
+        // 🔥 IGNORAR MEDICAMENTOS
+        if (esMedicamento(descripcion, emisor)) continue;
 
         const totalItem =
           item.getElementsByTagName("dte:Total")[0]?.textContent ||
@@ -275,50 +284,41 @@ useEffect(() => {
 
         const categoria = detectarCategoria(descripcion, emisor);
 
-        // 💾 GUARDAR CADA ITEM
-        const res = await fetch("/api/compras", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            descripcion: "[XML] " + descripcion,
-            categoria,
-            total: Number(totalItem),
-            base: Number(totalItem) - ivaItem,
-            iva: ivaItem,
-            mes,
-            anio,
-            uuid: uuid + "-" + i, // 🔥 evita duplicados
-          }),
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          console.log("⚠️", data.error);
-          continue;
-        }
-
-        resultados.push({
-          total: Number(totalItem),
-          iva: ivaItem,
+        const data = {
+          descripcion: "[XML] " + descripcion,
           categoria,
-        });
+          total: Number(totalItem),
+          base: Number(totalItem) - ivaItem,
+          iva: ivaItem,
+          mes,
+          anio,
+          uuid: uuid + "-" + i,
+        };
+
+        batch.push(data);
+        resultados.push(data);
       }
 
     } catch (err) {
-      console.error("❌ Error procesando XML:", err);
+      console.error("Error XML:", file.name, err);
       continue;
     }
   }
 
-  // 🔄 RECARGAR
+  // 🔥 ENVÍO EN BLOQUE (ULTRA IMPORTANTE)
+  if (batch.length > 0) {
+    await fetch("/api/compras/batch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(batch),
+    });
+  }
+
   await cargarCompras();
-
   setComprasXML(resultados);
-
-  // 🔁 RESET INPUT
   e.target.value = "";
 };
 console.log("XML cargados:", comprasXML.length);
