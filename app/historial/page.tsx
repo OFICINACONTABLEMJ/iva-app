@@ -118,54 +118,109 @@ export default function Historial() {
 const generarPDF = () => {
   const pdf = new jsPDF("p", "mm", "a4");
 
+  const pageWidth = pdf.internal.pageSize.getWidth();
+
   // =========================
-  // 🔥 HEADER BONITO
+  // 🔥 HEADER (EN TODAS LAS PÁGINAS)
   // =========================
-  pdf.setFontSize(14);
-  pdf.setTextColor(40);
+  const drawHeader = () => {
+    // LOGO
+    pdf.addImage("/logo.png", "PNG", 14, 10, 15, 15);
 
-  pdf.text("OFICINA CONTABLE MJ", 14, 15);
-  pdf.setFontSize(10);
-  pdf.text("Sistema de control fiscal", 14, 20);
+    // TITULO EMPRESA
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.setTextColor(79, 70, 229);
+    pdf.text("OFICINA CONTABLE MJ", 32, 15);
 
-  pdf.text(`Fecha: ${new Date().toLocaleDateString()}`, 150, 15);
-  pdf.text(`Periodo: ${nombreMes} ${anio}`, 150, 20);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(100);
+    pdf.text("Sistema de control fiscal", 32, 20);
 
-  // línea
-  pdf.setDrawColor(79, 70, 229);
-  pdf.line(14, 23, 196, 23);
+    // INFO DERECHA
+    pdf.setFontSize(9);
+    pdf.setTextColor(0);
+    pdf.text(`Fecha: ${new Date().toLocaleDateString()}`, pageWidth - 60, 15);
+    pdf.text(`Periodo: ${nombreMes} ${anio}`, pageWidth - 60, 20);
+
+    // LINEA
+    pdf.setDrawColor(79, 70, 229);
+    pdf.setLineWidth(0.8);
+    pdf.line(14, 27, pageWidth - 14, 27);
+  };
+
+  // =========================
+  // 🔥 FOOTER
+  // =========================
+  const drawFooter = () => {
+    pdf.setFontSize(8);
+    pdf.setTextColor(120);
+
+    pdf.text(
+      `Página ${pdf.getNumberOfPages()}`,
+      pageWidth - 20,
+      290,
+      { align: "right" }
+    );
+  };
+
+  // =========================
+  // 🔥 HEADER INICIAL
+  // =========================
+  drawHeader();
 
   // =========================
   // TITULO
   // =========================
-  pdf.setFontSize(13);
-  pdf.text("REPORTE DE IVA MENSUAL", 105, 32, { align: "center" });
+  pdf.setFontSize(14);
+  pdf.setTextColor(0);
+  pdf.text("REPORTE DE IVA MENSUAL", pageWidth / 2, 35, {
+    align: "center",
+  });
 
   // =========================
-  // RESUMEN
+  // 🔥 RESUMEN (CUADROS)
   // =========================
-  pdf.setFontSize(10);
+  const drawBox = (label: string, value: string, x: number) => {
+    pdf.setFillColor(243, 244, 246);
+    pdf.roundedRect(x, 42, 40, 15, 3, 3, "F");
 
-  pdf.text(`Ventas: Q${resumen?.ventas?.toFixed(2)}`, 14, 42);
-  pdf.text(`Débito: Q${resumen?.debito?.toFixed(2)}`, 60, 42);
-  pdf.text(`Crédito: Q${resumen?.credito?.toFixed(2)}`, 110, 42);
-  pdf.text(`Retenciones: Q${resumen?.retenciones?.toFixed(2)}`, 160, 42);
+    pdf.setFontSize(8);
+    pdf.setTextColor(120);
+    pdf.text(label, x + 2, 47);
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0);
+    pdf.text(value, x + 2, 53);
+  };
+
+  drawBox("Ventas", `Q${resumen?.ventas?.toFixed(2)}`, 14);
+  drawBox("Débito", `Q${resumen?.debito?.toFixed(2)}`, 58);
+  drawBox("Crédito", `Q${resumen?.credito?.toFixed(2)}`, 102);
+  drawBox("Retenciones", `Q${resumen?.retenciones?.toFixed(2)}`, 146);
 
   // =========================
-  // IVA GRANDE
+  // 🔥 IVA GRANDE
   // =========================
-  pdf.setFontSize(12);
+  pdf.setFillColor(238, 242, 255);
+  pdf.roundedRect(14, 62, pageWidth - 28, 18, 4, 4, "F");
+
+  pdf.setFontSize(9);
+  pdf.setTextColor(80);
+  pdf.text("IVA A PAGAR", pageWidth / 2, 70, { align: "center" });
+
+  pdf.setFontSize(18);
   pdf.setTextColor(220, 38, 38);
-
   pdf.text(
-    `IVA A PAGAR: Q${resumen?.iva?.toFixed(2)}`,
-    105,
-    52,
+    `Q${resumen?.iva?.toFixed(2)}`,
+    pageWidth / 2,
+    77,
     { align: "center" }
   );
 
   // =========================
-  // TABLA
+  // 🔥 TABLA
   // =========================
   const rows = compras.map((c, i) => [
     i + 1,
@@ -175,7 +230,7 @@ const generarPDF = () => {
   ]);
 
   autoTable(pdf, {
-    startY: 60,
+    startY: 85,
     head: [["#", "Descripción", "Categoría", "Total"]],
     body: rows,
 
@@ -183,26 +238,30 @@ const generarPDF = () => {
 
     styles: {
       fontSize: 9,
+      cellPadding: 2,
     },
 
     headStyles: {
-      fillColor: [243, 244, 246],
-      textColor: 20,
+      fillColor: [229, 231, 235],
+      textColor: 0,
+      fontStyle: "bold",
     },
 
-    didDrawPage: (data) => {
-      // footer
-      pdf.setFontSize(8);
-      pdf.text(
-        `Página ${pdf.getNumberOfPages()}`,
-        180,
-        290
-      );
+    columnStyles: {
+      0: { halign: "center", cellWidth: 10 },
+      1: { cellWidth: 90 },
+      2: { cellWidth: 40 },
+      3: { halign: "right", cellWidth: 30 },
+    },
+
+    didDrawPage: () => {
+      drawHeader();
+      drawFooter();
     },
   });
 
   // =========================
-  // 🔥 TOTALES POR CATEGORÍA
+  // 🔥 TOTALES
   // =========================
   let finalY = (pdf as any).lastAutoTable.finalY + 10;
 
