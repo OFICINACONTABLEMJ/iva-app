@@ -114,20 +114,19 @@ export default function Historial() {
   // ============================
   // PDF
   // ============================
-
+  
 const generarPDF = () => {
   const pdf = new jsPDF("p", "mm", "a4");
-
   const pageWidth = pdf.internal.pageSize.getWidth();
 
   // =========================
-  // 🔥 HEADER (EN TODAS LAS PÁGINAS)
+  // 🔥 HEADER
   // =========================
   const drawHeader = () => {
-    // LOGO
-    pdf.addImage("/logo.png", "PNG", 14, 10, 15, 15);
+    try {
+      pdf.addImage("/logo.png", "PNG", 14, 10, 15, 15);
+    } catch {}
 
-    // TITULO EMPRESA
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
     pdf.setTextColor(79, 70, 229);
@@ -138,13 +137,11 @@ const generarPDF = () => {
     pdf.setTextColor(100);
     pdf.text("Sistema de control fiscal", 32, 20);
 
-    // INFO DERECHA
     pdf.setFontSize(9);
     pdf.setTextColor(0);
     pdf.text(`Fecha: ${new Date().toLocaleDateString()}`, pageWidth - 60, 15);
     pdf.text(`Periodo: ${nombreMes} ${anio}`, pageWidth - 60, 20);
 
-    // LINEA
     pdf.setDrawColor(79, 70, 229);
     pdf.setLineWidth(0.8);
     pdf.line(14, 27, pageWidth - 14, 27);
@@ -156,7 +153,6 @@ const generarPDF = () => {
   const drawFooter = () => {
     pdf.setFontSize(8);
     pdf.setTextColor(120);
-
     pdf.text(
       `Página ${pdf.getNumberOfPages()}`,
       pageWidth - 20,
@@ -165,9 +161,6 @@ const generarPDF = () => {
     );
   };
 
-  // =========================
-  // 🔥 HEADER INICIAL
-  // =========================
   drawHeader();
 
   // =========================
@@ -180,7 +173,7 @@ const generarPDF = () => {
   });
 
   // =========================
-  // 🔥 RESUMEN (CUADROS)
+  // RESUMEN
   // =========================
   const drawBox = (label: string, value: string, x: number) => {
     pdf.setFillColor(243, 244, 246);
@@ -201,7 +194,7 @@ const generarPDF = () => {
   drawBox("Retenciones", `Q${resumen?.retenciones?.toFixed(2)}`, 146);
 
   // =========================
-  // 🔥 IVA GRANDE
+  // IVA
   // =========================
   pdf.setFillColor(238, 242, 255);
   pdf.roundedRect(14, 62, pageWidth - 28, 18, 4, 4, "F");
@@ -212,15 +205,12 @@ const generarPDF = () => {
 
   pdf.setFontSize(18);
   pdf.setTextColor(220, 38, 38);
-  pdf.text(
-    `Q${resumen?.iva?.toFixed(2)}`,
-    pageWidth / 2,
-    77,
-    { align: "center" }
-  );
+  pdf.text(`Q${resumen?.iva?.toFixed(2)}`, pageWidth / 2, 77, {
+    align: "center",
+  });
 
   // =========================
-  // 🔥 TABLA
+  // TABLA
   // =========================
   const rows = compras.map((c, i) => [
     i + 1,
@@ -239,6 +229,7 @@ const generarPDF = () => {
     styles: {
       fontSize: 9,
       cellPadding: 2,
+      overflow: "linebreak",
     },
 
     headStyles: {
@@ -254,6 +245,10 @@ const generarPDF = () => {
       3: { halign: "right", cellWidth: 30 },
     },
 
+    // 🔥 CLAVE: PAGINACIÓN AUTOMÁTICA
+    pageBreak: "auto",
+    rowPageBreak: "auto",
+
     didDrawPage: () => {
       drawHeader();
       drawFooter();
@@ -261,31 +256,37 @@ const generarPDF = () => {
   });
 
   // =========================
-  // 🔥 TOTALES
+  // TOTALES
   // =========================
   let finalY = (pdf as any).lastAutoTable.finalY + 10;
 
-  const totales: any = {};
+  // 🔥 SI NO CABE → NUEVA PÁGINA
+  if (finalY > 260) {
+    pdf.addPage();
+    drawHeader();
+    drawFooter();
+    finalY = 30;
+  }
 
+  const totales: any = {};
   compras.forEach((c) => {
-    if (!totales[c.categoria]) {
-      totales[c.categoria] = 0;
-    }
+    if (!totales[c.categoria]) totales[c.categoria] = 0;
     totales[c.categoria] += Number(c.total);
   });
 
+  pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
-  pdf.setTextColor(0);
 
-  pdf.text(`TOTAL COMPRAS: Q${totalCompras.toFixed(2)}`, 140, finalY);
+  pdf.text(`TOTAL COMPRAS:`, 130, finalY);
+  pdf.text(`Q${totalCompras.toFixed(2)}`, 190, finalY, { align: "right" });
+
   finalY += 6;
 
   Object.keys(totales).forEach((cat) => {
-    pdf.text(
-      `TOTAL ${cat.toUpperCase()}: Q${totales[cat].toFixed(2)}`,
-      140,
-      finalY
-    );
+    pdf.text(`TOTAL ${cat.toUpperCase()}:`, 130, finalY);
+    pdf.text(`Q${totales[cat].toFixed(2)}`, 190, finalY, {
+      align: "right",
+    });
     finalY += 6;
   });
 
@@ -386,22 +387,22 @@ const generarPDF = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
                 <div className="bg-gray-100 p-3 rounded-lg">
-                  <p className="text-xs text-gray-500">Ventas</p>
+                  <p className="text-xs text-gray-500">VENTAS</p>
                   <p className="font-bold">Q{resumen.ventas?.toFixed(2)}</p>
                 </div>
 
                 <div className="bg-gray-100 p-3 rounded-lg">
-                  <p className="text-xs text-gray-500">Débito</p>
+                  <p className="text-xs text-gray-500">DEBITO "VENTAS"</p>
                   <p className="font-bold">Q{resumen.debito?.toFixed(2)}</p>
                 </div>
 
                 <div className="bg-gray-100 p-3 rounded-lg">
-                  <p className="text-xs text-gray-500">Crédito</p>
+                  <p className="text-xs text-gray-500">CREDITO "COMPRAS"</p>
                   <p className="font-bold">Q{resumen.credito?.toFixed(2)}</p>
                 </div>
 
                 <div className="bg-gray-100 p-3 rounded-lg">
-                  <p className="text-xs text-gray-500">Retenciones</p>
+                  <p className="text-xs text-gray-500">RETENCIONES</p>
                   <p className="font-bold">Q{resumen.retenciones?.toFixed(2)}</p>
                 </div>
 
