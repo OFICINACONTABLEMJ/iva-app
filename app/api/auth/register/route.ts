@@ -17,23 +17,27 @@ export async function POST(req: Request) {
       );
     }
 
-    const { nombre, email, password } = data;
+    const { nombre, email, password, nit } = data;
 
+    // =========================
     // 🔹 LIMPIAR DATOS
+    // =========================
     const nombreClean = (nombre || "").trim();
     const emailClean = (email || "").trim().toLowerCase();
+    const nitClean = (nit || "").trim().toUpperCase();
 
-    // 🔹 VALIDACIÓN CAMPOS
-    if (!nombreClean || !emailClean || !password) {
+    // =========================
+    // 🔹 VALIDACIONES
+    // =========================
+    if (!nombreClean || !emailClean || !password || !nitClean) {
       return NextResponse.json(
         { error: "Faltan campos" },
         { status: 400 }
       );
     }
 
-    // 🔹 VALIDAR FORMATO EMAIL
+    // 🔹 EMAIL
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
     if (!emailRegex.test(emailClean)) {
       return NextResponse.json(
         { error: "Correo inválido" },
@@ -41,7 +45,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔹 VALIDAR PASSWORD (opcional pero recomendado)
+    // 🔹 PASSWORD
     if (password.length < 6) {
       return NextResponse.json(
         { error: "La contraseña debe tener al menos 6 caracteres" },
@@ -49,7 +53,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔍 VERIFICAR SI YA EXISTE (CASE INSENSITIVE)
+    // 🔹 NIT (validación básica Guatemala)
+    const nitRegex = /^[0-9]+(-?[0-9kK])?$/;
+    if (!nitRegex.test(nitClean)) {
+      return NextResponse.json(
+        { error: "NIT inválido" },
+        { status: 400 }
+      );
+    }
+
+    // =========================
+    // 🔍 VERIFICAR DUPLICADOS
+    // =========================
     const existingUser = await prisma.usuario.findFirst({
       where: {
         email: emailClean,
@@ -63,22 +78,35 @@ export async function POST(req: Request) {
       );
     }
 
+    // =========================
     // 🔐 ENCRIPTAR PASSWORD
+    // =========================
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // =========================
     // 🔥 CREAR USUARIO
+    // =========================
     const user = await prisma.usuario.create({
       data: {
         nombre: nombreClean,
         email: emailClean,
         password: hashedPassword,
+        nit: nitClean, // 🔥 CLAVE
       },
     });
 
     return NextResponse.json({ ok: true });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("REGISTER ERROR:", error);
+
+    // 🔥 ERROR DE PRISMA (unique constraint)
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { error: "El correo ya existe" },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json(
       {
