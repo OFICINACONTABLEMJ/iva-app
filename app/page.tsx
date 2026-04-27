@@ -241,6 +241,9 @@ useEffect(() => {
           item.getElementsByTagName("dte:Descripcion")[0]?.textContent ||
           item.getElementsByTagName("Descripcion")[0]?.textContent ||
           "Item XML";
+          if (descripcion.toLowerCase().includes("iva")) {
+         continue;
+        } 
 
         const totalItem =
           item.getElementsByTagName("dte:Total")[0]?.textContent ||
@@ -602,7 +605,7 @@ if (!user) {
     <p>IVA XML: <b>Q{totalIVAXML.toFixed(2)}</b></p>
 
     <p className="mt-2 text-xs text-gray-500">
-      XML cargados: <b>{comprasXML.length}</b>
+      COMPRAS CARGADAS: <b>{comprasXML.length}</b>
     </p>
   </div>
 </div>
