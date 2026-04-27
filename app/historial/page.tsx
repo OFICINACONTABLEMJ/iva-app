@@ -140,26 +140,25 @@ export default function Historial() {
   const pageHeight = 297;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  let position = 0;
+  let y = 0;
+const pageContentHeight = 277; // 297 - márgenes
 
-  // 🔥 PRIMERA PÁGINA
-  pdf.addImage(imgData, "PNG", 10, position + 10, imgWidth, imgHeight);
-
-  // 🔥 PAGINACIÓN CORRECTA
-  while (imgHeight - position > pageHeight - 20) {
-    position += pageHeight - 20;
-
+while (y < imgHeight) {
+  if (y > 0) {
     pdf.addPage();
-
-    pdf.addImage(
-      imgData,
-      "PNG",
-      10,
-      -position + 10,
-      imgWidth,
-      imgHeight
-    );
   }
+
+  pdf.addImage(
+    imgData,
+    "PNG",
+    10,
+    10 - y, // 🔥 mueve la imagen hacia arriba correctamente
+    imgWidth,
+    imgHeight
+  );
+
+  y += pageContentHeight;
+}
 
   pdf.save(`IVA_${mes}_${anio}.pdf`);
 
