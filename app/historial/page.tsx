@@ -115,48 +115,56 @@ export default function Historial() {
   // ============================
 
   const generarPDF = async () => {
-    const element = document.getElementById("factura-pdf");
-    if (!element) return;
+  const element = document.getElementById("factura-pdf");
+  if (!element) return;
 
-    // mostrar fuera de pantalla
-    element.style.display = "block";
-    element.style.position = "absolute";
-    element.style.left = "-9999px";
-    element.style.top = "0";
+  // mostrar fuera de pantalla
+  element.style.display = "block";
+  element.style.position = "absolute";
+  element.style.left = "-9999px";
+  element.style.top = "0";
 
-    // pequeño delay para render
-    await new Promise((r) => setTimeout(r, 300));
+  await new Promise((r) => setTimeout(r, 300));
 
-    const canvas = await html2canvas(element, {
-      scale: 3,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-    });
+  const canvas = await html2canvas(element, {
+    scale: 3,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+  });
 
-    const pdf = new jsPDF("p", "mm", "a4");
+  const pdf = new jsPDF("p", "mm", "a4");
 
-    const imgData = canvas.toDataURL("image/png");
+  const imgData = canvas.toDataURL("image/png");
 
-const imgWidth = 190;
-const pageHeight = 297; // A4 mm
-const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const imgWidth = 190;
+  const pageHeight = 297;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-let heightLeft = imgHeight;
-let position = 10;
+  let position = 0;
 
-pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-heightLeft -= pageHeight;
+  // 🔥 PRIMERA PÁGINA
+  pdf.addImage(imgData, "PNG", 10, position + 10, imgWidth, imgHeight);
 
-while (heightLeft > 0) {
-  pdf.addPage();
-  position = heightLeft - imgHeight + 10;
-  pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
-}
-    pdf.save(`IVA_${mes}_${anio}.pdf`);
+  // 🔥 PAGINACIÓN CORRECTA
+  while (imgHeight - position > pageHeight - 20) {
+    position += pageHeight - 20;
 
-    element.style.display = "none";
-  };
+    pdf.addPage();
+
+    pdf.addImage(
+      imgData,
+      "PNG",
+      10,
+      -position + 10,
+      imgWidth,
+      imgHeight
+    );
+  }
+
+  pdf.save(`IVA_${mes}_${anio}.pdf`);
+
+  element.style.display = "none";
+};
 
   // ============================
   // STYLES (PDF inline)
