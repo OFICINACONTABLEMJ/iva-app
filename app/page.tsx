@@ -159,45 +159,49 @@ useEffect(() => {
 }, [comprasXML]);
 
   // 🔥 XML COMPRAS
-  const handleXMLCompras = async (e: any) => {
+  const handleXMLCompras = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
   if (bloqueado) {
     alert("Mes bloqueado");
     return;
   }
 
-  const files = Array.from(e.target.files || []) as File[];
+  const files = Array.from(e.target.files ?? []) as File[];
   if (files.length === 0) return;
 
-  const resultados: any[] = [];
   const batch: any[] = [];
-  const uuidsSet = new Set(); // 🔥 evitar duplicados reales
+  const facturasProcesadas: string[] = [];
 
-  // 🔥 DETECTOR MEJORADO
-  const detectarCategoria = (descripcion: string, emisor: string) => {
-    const texto = (descripcion || "").toLowerCase();
-    const proveedor = (emisor || "").toLowerCase();
+  // 🔥 CATEGORIZADOR PRO
+  const detectarCategoria = (desc: string, emisor: string) => {
+    const t = desc.toLowerCase();
+    const p = emisor.toLowerCase();
 
-    if (
-      /diesel|gasolina|super|regular|premium|vp/.test(texto) ||
-      /texaco|shell|puma|uno/.test(proveedor)
-    ) return "Combustible";
+    if (/diesel|gasolina|super|regular|premium/.test(t) || /texaco|shell|puma/.test(p)) {
+      return "Combustible";
+    }
 
-    if (
-      /agua|luz|energia|electricidad|internet|cable|telefono|servicio/.test(texto) ||
-      /claro|tigo|energuate/.test(proveedor)
-    ) return "Servicios";
+    if (/agua|luz|energia|internet|telefono/.test(t) || /claro|tigo|energuate/.test(p)) {
+      return "Servicios";
+    }
+
+    if (/supermercado|despensa|alimento|comida/.test(t)) {
+      return "Gastos personales";
+    }
 
     return "Otras compras";
   };
 
-  // 🔥 FILTRO MEDICAMENTOS
-  const esMedicamento = (descripcion: string, emisor: string) => {
-    const texto = descripcion.toLowerCase();
-    const proveedor = emisor.toLowerCase();
+  // 🔥 DETECTOR NO DEDUCIBLE
+  const esNoDeducible = (desc: string, emisor: string) => {
+    const t = desc.toLowerCase();
+    const p = emisor.toLowerCase();
 
     return (
-      /farmacia|medicamento|tablet|capsula|jarabe|vitamina|acetaminofen|ibuprofeno/.test(texto) ||
-      /farmacia|cruz verde|galeno|batres/.test(proveedor)
+      /farmacia|medicamento|capsula|jarabe|vitamina|acetaminofen|ibuprofeno/.test(t) ||
+      /farmacia|cruz verde|batres|galeno/.test(p) ||
+      /supermercado|walmart|la torre|despensa familiar/.test(p)
     );
   };
 
@@ -205,7 +209,7 @@ useEffect(() => {
     try {
       const buffer = await file.arrayBuffer();
 
-      // 🔥 AUTO-DETECTAR ENCODING
+      // 🔥 ENCODING AUTO
       let text = new TextDecoder("utf-8").decode(buffer);
       if (text.includes("�")) {
         text = new TextDecoder("iso-8859-1").decode(buffer);
@@ -213,22 +217,22 @@ useEffect(() => {
 
       const xml = new DOMParser().parseFromString(text, "text/xml");
 
-      // ❌ XML inválido
       if (xml.getElementsByTagName("parsererror").length > 0) {
         console.error("XML inválido:", file.name);
         continue;
       }
 
-      // 🔥 UUID REAL
-      const uuid =
+      // 🔥 UUID FACTURA
+      const uuidFactura =
         xml.getElementsByTagName("dte:NumeroAutorizacion")[0]?.textContent ||
         xml.getElementsByTagName("NumeroAutorizacion")[0]?.textContent ||
         "";
 
-      if (!uuid || uuidsSet.has(uuid)) {
-        continue; // 🔥 evita duplicados
-      }
-      uuidsSet.add(uuid);
+      if (!uuidFactura) continue;
+
+      // 🔥 evitar duplicados en el mismo lote
+      if (facturasProcesadas.includes(uuidFactura)) continue;
+      facturasProcesadas.push(uuidFactura);
 
       const emisor =
         xml.getElementsByTagName("dte:Emisor")[0]?.getAttribute("NombreComercial") ||
@@ -250,18 +254,14 @@ useEffect(() => {
 
         if (!descripcion) continue;
 
-        // 🔥 IGNORAR IVA LINEAS
         if (descripcion.toLowerCase().includes("iva")) continue;
 
-        // 🔥 IGNORAR MEDICAMENTOS
-        if (esMedicamento(descripcion, emisor)) continue;
-
-        const totalItem =
+        const total =
           item.getElementsByTagName("dte:Total")[0]?.textContent ||
           item.getElementsByTagName("Total")[0]?.textContent ||
           "0";
 
-        let ivaItem = 0;
+        let iva = 0;
 
         const impuestos =
           item.getElementsByTagName("dte:Impuesto").length > 0
@@ -278,34 +278,32 @@ useEffect(() => {
             impuestos[j].getElementsByTagName("MontoImpuesto")[0]?.textContent;
 
           if (nombre?.toUpperCase() === "IVA") {
-            ivaItem += Number(monto || 0);
+            iva += Number(monto || 0);
           }
         }
 
         const categoria = detectarCategoria(descripcion, emisor);
+        const noDeducible = esNoDeducible(descripcion, emisor);
 
-        const data = {
+        batch.push({
           descripcion: "[XML] " + descripcion,
           categoria,
-          total: Number(totalItem),
-          base: Number(totalItem) - ivaItem,
-          iva: ivaItem,
+          total: Number(total),
+          base: Number(total) - iva,
+          iva,
           mes,
           anio,
-          uuid: uuid + "-" + i,
-        };
-
-        batch.push(data);
-        resultados.push(data);
+          uuid: uuidFactura + "-" + i,
+          uuidFactura,
+          deducible: !noDeducible,
+        });
       }
-
     } catch (err) {
       console.error("Error XML:", file.name, err);
-      continue;
     }
   }
 
-  // 🔥 ENVÍO EN BLOQUE (ULTRA IMPORTANTE)
+  // 🔥 ENVÍO MASIVO
   if (batch.length > 0) {
     await fetch("/api/compras/batch", {
       method: "POST",
@@ -318,7 +316,6 @@ useEffect(() => {
   }
 
   await cargarCompras();
-  setComprasXML(resultados);
   e.target.value = "";
 };
 console.log("XML cargados:", comprasXML.length);

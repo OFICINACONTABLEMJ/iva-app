@@ -36,8 +36,12 @@
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
   uuid String
+  uuidFactura   String
+  deducible     Boolean @default(true)
 
   @@unique([uuid, usuarioId])
+  @@index([uuidFactura])
+  
 }
 
   model Resumen {
