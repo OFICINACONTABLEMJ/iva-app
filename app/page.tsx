@@ -211,7 +211,9 @@ useEffect(() => {
 
   for (const file of Array.from(files) as File[]) {
     try {
-      const text = await file.text();
+      const buffer = await file.arrayBuffer();
+      const decoder = new TextDecoder("iso-8859-1"); // 🔥 CLAVE
+      const text = decoder.decode(buffer);
       const xml = new DOMParser().parseFromString(text, "text/xml");
 
       // 🔥 UUID
