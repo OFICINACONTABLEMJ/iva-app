@@ -105,7 +105,7 @@ export default function Register() {
 
         {/* NIT */}
         <input
-          placeholder="NIT (Ej: 1234567-8)"
+          placeholder="NIT (Ej: 12345678)(sin guiones ni espacios)"
           value={nit}
           onChange={(e) => setNit(e.target.value)}
           className="w-full p-2 rounded bg-white/20 border border-white/30 placeholder-white/70 mb-3 focus:outline-none focus:ring-2 focus:ring-white"

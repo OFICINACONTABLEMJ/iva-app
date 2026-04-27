@@ -585,25 +585,54 @@ if (!user) {
     ))}
   </select>
 
-  <button
-    onClick={() => {
-      const nombre = prompt("Nombre del cliente");
-      const nit = prompt("NIT del cliente");
+  <div className="flex justify-between items-center mt-3">
 
-      if (!nombre || !nit) return;
+    {/* NUEVO CLIENTE */}
+    <button
+      onClick={async () => {
+        const nombre = prompt("Nombre del cliente");
+        const nit = prompt("NIT del cliente");
 
-      fetch("/api/clientes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, nit }),
-      }).then(cargarClientes);
-    }}
-    className="mt-2 text-blue-500 text-sm"
-  >
-    + Nuevo cliente
-  </button>
+        if (!nombre || !nit) return;
+
+        await fetch("/api/clientes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // 🔥 IMPORTANTE
+          body: JSON.stringify({ nombre, nit }),
+        });
+
+        await cargarClientes();
+      }}
+      className="text-blue-500 text-sm"
+    >
+      + Nuevo cliente
+    </button>
+
+    {/* ELIMINAR */}
+    {clienteId && (
+      <button
+        onClick={async () => {
+          const ok = confirm("¿Eliminar este cliente?");
+          if (!ok) return;
+
+          await fetch("/api/clientes", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include", // 🔥 IMPORTANTE
+            body: JSON.stringify({ id: clienteId }),
+          });
+
+          setClienteId("");
+          await cargarClientes();
+        }}
+        className="text-red-500 text-sm"
+      >
+        🗑 Eliminar
+      </button>
+    )}
+  </div>
 </div>
-
       {/* VENTAS */}
       <div className="bg-white/80 backdrop-blur-md p-5 rounded-2xl shadow-xl border border-white/40">
   <h2 className="font-semibold text-gray-700 mb-2">
