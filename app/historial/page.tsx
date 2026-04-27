@@ -114,7 +114,7 @@ export default function Historial() {
   // ============================
   // PDF
   // ============================
-  
+
 const generarPDF = () => {
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -258,7 +258,7 @@ const generarPDF = () => {
   // =========================
   // TOTALES
   // =========================
-  let finalY = (pdf as any).lastAutoTable.finalY + 10;
+  let finalY = (pdf as any).lastAutoTable.finalY + 20;
 
   // 🔥 SI NO CABE → NUEVA PÁGINA
   if (finalY > 260) {
@@ -277,18 +277,23 @@ const generarPDF = () => {
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
 
-  pdf.text(`TOTAL COMPRAS:`, 130, finalY);
-  pdf.text(`Q${totalCompras.toFixed(2)}`, 190, finalY, { align: "right" });
+  pdf.text(
+  `TOTAL COMPRAS: Q${totalCompras.toFixed(2)}`,
+  14,
+  finalY
+);
 
-  finalY += 6;
+finalY += 6;
 
   Object.keys(totales).forEach((cat) => {
-    pdf.text(`TOTAL ${cat.toUpperCase()}:`, 130, finalY);
-    pdf.text(`Q${totales[cat].toFixed(2)}`, 190, finalY, {
-      align: "right",
-    });
-    finalY += 6;
-  });
+  pdf.text(
+    `TOTAL ${cat.toUpperCase()}: Q${totales[cat].toFixed(2)}`,
+    14, // 🔥 alineado a la izquierda
+    finalY
+  );
+
+  finalY += 6;
+});
 
   pdf.save(`IVA_${mes}_${anio}.pdf`);
 };
