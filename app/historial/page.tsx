@@ -258,7 +258,7 @@ const generarPDF = () => {
   // =========================
   // TOTALES
   // =========================
-  let finalY = (pdf as any).lastAutoTable.finalY + 20;
+  let finalY = (pdf as any).lastAutoTable.finalY + 50;
 
   // 🔥 SI NO CABE → NUEVA PÁGINA
   if (finalY > 260) {
