@@ -162,7 +162,9 @@ const clienteSeleccionado = clientes.find(
   (c) => c.id === clienteId
 );
 if (!clienteSeleccionado) {
-  alert("Selecciona un cliente antes de generar el PDF");
+  if (typeof window !== "undefined") {
+  alert("Selecciona un cliente");
+}
   return;
 }
 
@@ -443,11 +445,16 @@ const generarPDF = () => {
           </button>
 
           <button
-            onClick={generarPDF}
-            className="w-full mt-6 bg-gray-900 hover:bg-black text-white py-3 rounded-xl font-semibold shadow"
-          >
-            📄 Exportar PDF
-          </button>
+  onClick={() => {
+    if (!clienteId) {
+      alert("Selecciona un cliente");
+      return;
+    }
+    generarPDF();
+  }}
+>
+  Exportar PDF
+</button>
 
         </div>
       </div>
