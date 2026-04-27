@@ -16,36 +16,31 @@ export async function POST(req: Request) {
       iva,
       mes,
       anio,
-      uuid, // 🔥 UUID XML
+      uuid,
+      uuidFactura,
+      deducible,
     } = body;
 
-    // 🍪 OBTENER TOKEN
+    // 🍪 COOKIE
     const cookieStore = await cookies();
     const token = cookieStore.get("session")?.value;
 
     if (!token) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // 🔐 VALIDAR TOKEN
+    // 🔐 JWT
     let decoded: any;
-
     try {
       decoded = jwt.verify(token, SECRET);
     } catch {
-      return NextResponse.json(
-        { error: "Token inválido" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
     }
 
     const userId = decoded.id;
 
     // ============================
-    // 🔒 BLOQUEO DE MES (CLAVE)
+    // 🔒 BLOQUEO DE MES
     // ============================
     const bloqueado = await prisma.mesCerrado.findUnique({
       where: {
@@ -59,32 +54,54 @@ export async function POST(req: Request) {
 
     if (bloqueado) {
       return NextResponse.json(
-        { error: "Mes bloqueado, no puedes agregar compras" },
+        { error: "Mes bloqueado" },
         { status: 403 }
       );
     }
 
     // ============================
-    // 🔁 VALIDAR DUPLICADO XML
+    // 🔥 NORMALIZACIÓN SEGURA
     // ============================
-    if (uuid) {
-      const existe = await prisma.compra.findFirst({
-        where: {
-          uuid,
-          usuarioId: userId,
-        },
-      });
+    const safeUUID = uuid || crypto.randomUUID();
+    const safeUUIDFactura = uuidFactura || safeUUID;
+    const safeDeducible = deducible ?? true;
 
-      if (existe) {
-        return NextResponse.json(
-          { error: "XML ya registrado" },
-          { status: 400 }
-        );
-      }
+    // ============================
+    // 🔁 DUPLICADO ITEM
+    // ============================
+    const existeItem = await prisma.compra.findFirst({
+      where: {
+        uuid: safeUUID,
+        usuarioId: userId,
+      },
+    });
+
+    if (existeItem) {
+      return NextResponse.json(
+        { error: "Item XML duplicado" },
+        { status: 400 }
+      );
     }
 
     // ============================
-    // ✅ CREAR COMPRA
+    // 🔥 DUPLICADO FACTURA (PRO)
+    // ============================
+    const existeFactura = await prisma.compra.findFirst({
+      where: {
+        uuidFactura: safeUUIDFactura,
+        usuarioId: userId,
+      },
+    });
+
+    if (existeFactura) {
+      return NextResponse.json(
+        { error: "Factura ya registrada" },
+        { status: 400 }
+      );
+    }
+
+    // ============================
+    // ✅ CREAR
     // ============================
     const compra = await prisma.compra.create({
       data: {
@@ -96,7 +113,10 @@ export async function POST(req: Request) {
         mes: Number(mes),
         anio: Number(anio),
         usuarioId: userId,
-        uuid,
+
+        uuid: safeUUID,
+        uuidFactura: safeUUIDFactura,
+        deducible: safeDeducible,
       },
     });
 
