@@ -1,56 +1,74 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const SECRET = process.env.JWT_SECRET!;
+    const body = await req.json(); // 👈 array
 
-    if (!Array.isArray(body) || body.length === 0) {
+    if (!Array.isArray(body)) {
       return NextResponse.json(
-        { error: "Datos inválidos" },
+        { error: "Formato inválido" },
         { status: 400 }
       );
     }
 
-    // 🔥 extraer todos los uuid enviados
-    const uuids = body.map((c: any) => c.uuid);
+    // 🍪 TOKEN
+    const cookieStore = await cookies();
+    const token = cookieStore.get("session")?.value;
 
-    // 🔥 buscar cuáles ya existen en DB
-    const existentes = await prisma.compra.findMany({
-      where: {
-        uuid: { in: uuids },
-      },
-      select: { uuid: true },
-    });
-
-    const existentesSet = new Set(existentes.map(e => e.uuid));
-
-    // 🔥 filtrar solo nuevos
-    const nuevos = body.filter((c: any) => !existentesSet.has(c.uuid));
-
-    if (nuevos.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        mensaje: "Todos los registros ya existían",
-      });
+    if (!token) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // 🔥 insertar en lote
-    await prisma.compra.createMany({
-      data: nuevos,
-      skipDuplicates: true,
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, SECRET);
+    } catch {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
+    const userId = decoded.id;
+
+    // ============================
+    // 🔥 NORMALIZAR DATA
+    // ============================
+    const data = body.map((item: any) => ({
+      descripcion: item.descripcion,
+      categoria: item.categoria,
+      total: Number(item.total),
+      base: Number(item.base),
+      iva: Number(item.iva),
+      mes: Number(item.mes),
+      anio: Number(item.anio),
+
+      usuarioId: userId,
+
+      uuid: item.uuid || crypto.randomUUID(),
+      uuidFactura: item.uuidFactura || item.uuid || crypto.randomUUID(),
+      deducible: item.deducible ?? true,
+    }));
+
+    // ============================
+    // 🔥 INSERT MASIVO
+    // ============================
+    const result = await prisma.compra.createMany({
+      data,
+      skipDuplicates: true, // 🔥 CLAVE
     });
 
     return NextResponse.json({
       ok: true,
-      insertados: nuevos.length,
+      inserted: result.count,
     });
 
   } catch (error) {
-    console.error("BATCH ERROR:", error);
+    console.error("❌ ERROR BATCH:", error);
 
     return NextResponse.json(
-      { error: "Error en el servidor" },
+      { error: "Error en carga masiva" },
       { status: 500 }
     );
   }
