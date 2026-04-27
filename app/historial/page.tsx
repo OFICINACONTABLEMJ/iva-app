@@ -135,10 +135,24 @@ export default function Historial() {
 
     const pdf = new jsPDF("p", "mm", "a4");
 
-    const imgWidth = 190;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgData = canvas.toDataURL("image/png");
 
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 10, 10, imgWidth, imgHeight);
+const imgWidth = 190;
+const pageHeight = 297; // A4 mm
+const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+let heightLeft = imgHeight;
+let position = 10;
+
+pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+heightLeft -= pageHeight;
+
+while (heightLeft > 0) {
+  pdf.addPage();
+  position = heightLeft - imgHeight + 10;
+  pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+}
     pdf.save(`IVA_${mes}_${anio}.pdf`);
 
     element.style.display = "none";
@@ -410,15 +424,33 @@ export default function Historial() {
 
             {/* TOTAL */}
             <tr>
-              <td colSpan={3} style={{ ...td, fontWeight: "bold" }}>
-                TOTAL COMPRAS
-              </td>
-              <td style={{ ...td, textAlign: "right", fontWeight: "bold" }}>
-                Q{totalCompras.toFixed(2)}
-              </td>
-            </tr>
+  <td colSpan={3} style={{ ...td, fontWeight: "bold" }}>
+    TOTAL COMPRAS
+  </td>
+  <td style={{ ...td, textAlign: "right", fontWeight: "bold" }}>
+    Q{totalCompras.toFixed(2)}
+  </td>
+</tr>
+
+{/* 🔥 TOTALES POR CATEGORÍA */}
+{Object.entries(
+  compras.reduce((acc: any, c) => {
+    acc[c.categoria] = (acc[c.categoria] || 0) + c.total;
+    return acc;
+  }, {})
+).map(([cat, total]: any) => (
+  <tr key={cat}>
+    <td colSpan={3} style={{ ...td, fontWeight: "bold", background: "#f9fafb" }}>
+      TOTAL {cat.toUpperCase()}
+    </td>
+    <td style={{ ...td, textAlign: "right", fontWeight: "bold" }}>
+      Q{total.toFixed(2)}
+    </td>
+  </tr>
+))}
           </tbody>
         </table>
+        
 
         {/* FOOTER */}
         <div style={{
