@@ -69,6 +69,10 @@ model Resumen {
   bloqueado Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  // 🔥 RELACIÓN CORRECTA
+  clienteId String?
+  cliente   Cliente? @relation(fields: [clienteId], references: [id])
+
   @@unique([userId, mes, anio])
 }
 
@@ -113,15 +117,16 @@ model Factura {
 }
 
 model Cliente {
-  id        String   @id @default(cuid())
-  nombre    String
-  nit       String
+  id     String @id @default(cuid())
+  nombre String
+  nit    String
 
   usuarioId String
-  usuario   Usuario @relation(fields: [usuarioId], references: [id])
-
-  @@unique([nit, usuarioId])
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id])
+  resumenes Resumen[]
 
   compras   Compra[]
   createdAt DateTime @default(now())
+
+  @@unique([nit, usuarioId])
 }

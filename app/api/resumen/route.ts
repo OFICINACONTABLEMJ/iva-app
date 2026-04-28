@@ -6,38 +6,67 @@ import jwt from "jsonwebtoken";
 const SECRET = process.env.JWT_SECRET!;
 
 // ==========================
-// 🔒 GUARDAR Y BLOQUEAR MES
+// 🔐 OBTENER USUARIO
+// ==========================
+async function getUser() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("session")?.value;
+
+  if (!token) return null;
+
+  try {
+    return jwt.verify(token, SECRET) as any;
+  } catch {
+    return null;
+  }
+}
+
+// ==========================
+// 🔒 POST → GUARDAR + BLOQUEAR MES
 // ==========================
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { mes, anio, ventas, debito, credito, iva, retenciones } = body;
+    const user = await getUser();
 
-    // 🍪 TOKEN
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
-
-    if (!token) {
+    if (!user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // 🔐 VALIDAR TOKEN
-    let decoded: any;
-    try {
-      decoded = jwt.verify(token, SECRET);
-    } catch {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    const body = await req.json();
+
+    const {
+      mes,
+      anio,
+      ventas,
+      debito,
+      credito,
+      iva,
+      retenciones,
+      clienteId, // 🔥 NUEVO
+    } = body;
+
+    // 🔥 VALIDACIONES
+    if (!mes || !anio) {
+      return NextResponse.json(
+        { error: "Mes y año son requeridos" },
+        { status: 400 }
+      );
     }
 
-    const userId = decoded.id;
+    const mesNum = Number(mes);
+    const anioNum = Number(anio);
 
-    // 🔒 VERIFICAR SI YA ESTÁ BLOQUEADO
+    const userId = user.id;
+
+    // ==========================
+    // 🔒 VERIFICAR BLOQUEO
+    // ==========================
     const yaBloqueado = await prisma.mesCerrado.findUnique({
       where: {
         usuarioId_mes_anio: {
           usuarioId: userId,
-          mes,
-          anio,
+          mes: mesNum,
+          anio: anioNum,
         },
       },
     });
@@ -49,49 +78,74 @@ export async function POST(req: Request) {
       );
     }
 
+    // ==========================
+    // 🔥 VALIDAR CLIENTE (CLAVE)
+    // ==========================
+    let clienteValido = null;
+
+    if (clienteId) {
+      clienteValido = await prisma.cliente.findUnique({
+        where: { id: clienteId },
+      });
+
+      if (!clienteValido || clienteValido.usuarioId !== userId) {
+        return NextResponse.json(
+          { error: "Cliente inválido" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ==========================
     // 🔒 CREAR BLOQUEO
+    // ==========================
     await prisma.mesCerrado.create({
       data: {
         usuarioId: userId,
-        mes,
-        anio,
+        mes: mesNum,
+        anio: anioNum,
       },
     });
 
+    // ==========================
     // 💾 GUARDAR RESUMEN
-    await prisma.resumen.upsert({
+    // ==========================
+    const resumen = await prisma.resumen.upsert({
       where: {
         userId_mes_anio: {
           userId,
-          mes,
-          anio,
+          mes: mesNum,
+          anio: anioNum,
         },
       },
       update: {
-        ventas,
-        debito,
-        credito,
-        iva,
-        retenciones,
+        ventas: Number(ventas) || 0,
+        debito: Number(debito) || 0,
+        credito: Number(credito) || 0,
+        iva: Number(iva) || 0,
+        retenciones: Number(retenciones) || 0,
         bloqueado: true,
+        clienteId: clienteId || null, // 🔥 CLAVE
       },
       create: {
         userId,
-        mes,
-        anio,
-        ventas,
-        debito,
-        credito,
-        iva,
-        retenciones,
+        mes: mesNum,
+        anio: anioNum,
+        ventas: Number(ventas) || 0,
+        debito: Number(debito) || 0,
+        credito: Number(credito) || 0,
+        iva: Number(iva) || 0,
+        retenciones: Number(retenciones) || 0,
         bloqueado: true,
+        clienteId: clienteId || null, // 🔥 CLAVE
       },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(resumen);
 
   } catch (error) {
     console.error("ERROR POST /resumen:", error);
+
     return NextResponse.json(
       { error: "Error al guardar resumen" },
       { status: 500 }
@@ -100,39 +154,43 @@ export async function POST(req: Request) {
 }
 
 // ==========================
-// 📊 OBTENER RESUMEN
+// 📊 GET → OBTENER RESUMEN
 // ==========================
 export async function GET(req: Request) {
   try {
+    const user = await getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
 
     const mes = Number(searchParams.get("mes"));
     const anio = Number(searchParams.get("anio"));
 
-    // 🍪 TOKEN
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    if (!mes || !anio) {
+      return NextResponse.json(
+        { error: "Mes y año requeridos" },
+        { status: 400 }
+      );
     }
 
-    // 🔐 VALIDAR TOKEN
-    let decoded: any;
-    try {
-      decoded = jwt.verify(token, SECRET);
-    } catch {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
+    const userId = user.id;
 
-    const userId = decoded.id;
-
-    // 📊 RESUMEN
+    // ==========================
+    // 📊 RESUMEN + CLIENTE 🔥
+    // ==========================
     const resumen = await prisma.resumen.findFirst({
       where: { userId, mes, anio },
+      include: {
+        cliente: true, // 🔥 CLAVE PARA PDF
+      },
     });
 
+    // ==========================
     // 🔒 VERIFICAR BLOQUEO
+    // ==========================
     const bloqueado = await prisma.mesCerrado.findUnique({
       where: {
         usuarioId_mes_anio: {
@@ -145,11 +203,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       ...(resumen || {}),
-      bloqueado: !!bloqueado, // 🔥 CLAVE
+      bloqueado: !!bloqueado,
     });
 
   } catch (error) {
     console.error("ERROR GET /resumen:", error);
+
     return NextResponse.json(
       { error: "Error al obtener resumen" },
       { status: 500 }
