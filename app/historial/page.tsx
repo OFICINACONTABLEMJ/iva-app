@@ -160,28 +160,21 @@ export default function Historial() {
 };
 
 const generarPDF = () => {
-  // 🔥 VALIDACIÓN SOLO AQUÍ
+  const pdf = new jsPDF("p", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+
   const clienteSeleccionado = clientes.find(
     (c) => c.id === clienteId
   );
 
-  if (!clienteSeleccionado) {
-    alert("Selecciona un cliente");
-    return;
-  }
-
-  const pdf = new jsPDF("p", "mm", "a4");
-  const pageWidth = pdf.internal.pageSize.getWidth();
-
   // =========================
-  // 🔥 HEADER
+  // HEADER
   // =========================
   const drawHeader = () => {
     try {
       pdf.addImage("/logo.png", "PNG", 14, 10, 15, 15);
     } catch {}
 
-    // EMPRESA
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
     pdf.setTextColor(79, 70, 229);
@@ -192,36 +185,39 @@ const generarPDF = () => {
     pdf.setTextColor(100);
     pdf.text("Sistema de control fiscal", 32, 20);
 
-    // 🔥 CLIENTE
+    // 🔥 CLIENTE FLEXIBLE
     pdf.setTextColor(0);
     pdf.setFontSize(9);
-    pdf.text(`Cliente: ${clienteSeleccionado.nombre}`, 32, 25);
-    pdf.text(`NIT: ${clienteSeleccionado.nit}`, 32, 30);
 
-    // DERECHA
+    pdf.text(
+      `Cliente: ${clienteSeleccionado?.nombre || "GENERAL"}`,
+      32,
+      25
+    );
+
+    pdf.text(
+      `NIT: ${clienteSeleccionado?.nit || "-"}`,
+      32,
+      30
+    );
+
     pdf.text(
       `Fecha: ${new Date().toLocaleDateString()}`,
       pageWidth - 60,
       15
     );
+
     pdf.text(
       `Periodo: ${nombreMes} ${anio}`,
       pageWidth - 60,
       20
     );
 
-    // LÍNEA
-    pdf.setDrawColor(79, 70, 229);
-    pdf.setLineWidth(0.8);
     pdf.line(14, 35, pageWidth - 14, 35);
   };
 
-  // =========================
-  // 🔥 FOOTER
-  // =========================
   const drawFooter = () => {
     pdf.setFontSize(8);
-    pdf.setTextColor(120);
     pdf.text(
       `Página ${pdf.getNumberOfPages()}`,
       pageWidth - 20,
@@ -233,27 +229,23 @@ const generarPDF = () => {
   drawHeader();
 
   // =========================
-  // 🔥 TÍTULO
+  // TÍTULO
   // =========================
   pdf.setFontSize(14);
-  pdf.setTextColor(0);
   pdf.text("REPORTE DE IVA MENSUAL", pageWidth / 2, 45, {
     align: "center",
   });
 
   // =========================
-  // 🔥 RESUMEN
+  // RESUMEN
   // =========================
   const drawBox = (label: string, value: string, x: number) => {
-    pdf.setFillColor(243, 244, 246);
-    pdf.roundedRect(x, 52, 40, 15, 3, 3, "F");
+    pdf.roundedRect(x, 52, 40, 15, 3, 3);
 
     pdf.setFontSize(8);
-    pdf.setTextColor(120);
     pdf.text(label, x + 2, 57);
 
     pdf.setFontSize(10);
-    pdf.setTextColor(0);
     pdf.text(value, x + 2, 63);
   };
 
@@ -263,23 +255,20 @@ const generarPDF = () => {
   drawBox("Retenciones", `Q${resumen?.retenciones?.toFixed(2)}`, 146);
 
   // =========================
-  // 🔥 IVA
+  // IVA
   // =========================
-  pdf.setFillColor(238, 242, 255);
-  pdf.roundedRect(14, 72, pageWidth - 28, 18, 4, 4, "F");
+  pdf.roundedRect(14, 72, pageWidth - 28, 18, 4, 4);
 
-  pdf.setFontSize(9);
-  pdf.setTextColor(80);
   pdf.text("IVA A PAGAR", pageWidth / 2, 78, { align: "center" });
 
-  pdf.setFontSize(18);
   pdf.setTextColor(220, 38, 38);
+  pdf.setFontSize(18);
   pdf.text(`Q${resumen?.iva?.toFixed(2)}`, pageWidth / 2, 85, {
     align: "center",
   });
 
   // =========================
-  // 🔥 TABLA
+  // TABLA
   // =========================
   const rows = compras.map((c, i) => [
     i + 1,
@@ -292,74 +281,13 @@ const generarPDF = () => {
     startY: 95,
     head: [["#", "Descripción", "Categoría", "Total"]],
     body: rows,
-
     theme: "grid",
-
-    styles: {
-      fontSize: 9,
-      cellPadding: 2,
-    },
-
-    headStyles: {
-      fillColor: [229, 231, 235],
-      textColor: 0,
-      fontStyle: "bold",
-    },
-
-    columnStyles: {
-      0: { halign: "center", cellWidth: 10 },
-      1: { cellWidth: 90 },
-      2: { cellWidth: 40 },
-      3: { halign: "right", cellWidth: 30 },
-    },
-
     didDrawPage: () => {
       drawHeader();
       drawFooter();
     },
   });
 
-  // =========================
-  // 🔥 TOTALES
-  // =========================
-  let finalY = (pdf as any).lastAutoTable.finalY + 15;
-
-  if (finalY > 260) {
-    pdf.addPage();
-    drawHeader();
-    drawFooter();
-    finalY = 50;
-  }
-
-  const totales: any = {};
-  compras.forEach((c) => {
-    if (!totales[c.categoria]) totales[c.categoria] = 0;
-    totales[c.categoria] += Number(c.total);
-  });
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-
-  pdf.text(
-    `TOTAL COMPRAS: Q${totalCompras.toFixed(2)}`,
-    14,
-    finalY
-  );
-
-  finalY += 6;
-
-  Object.keys(totales).forEach((cat) => {
-    pdf.text(
-      `TOTAL ${cat.toUpperCase()}: Q${totales[cat].toFixed(2)}`,
-      14,
-      finalY
-    );
-    finalY += 6;
-  });
-
-  // =========================
-  // 🔥 EXPORTAR
-  // =========================
   pdf.save(`IVA_${mes}_${anio}.pdf`);
 };
 

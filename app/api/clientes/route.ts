@@ -8,8 +8,8 @@ import jwt from "jsonwebtoken";
 // ============================
 async function getUser() {
   const SECRET = process.env.JWT_SECRET!;
-
   const token = (await cookies()).get("session")?.value;
+
   if (!token) return null;
 
   try {
@@ -20,12 +20,11 @@ async function getUser() {
 }
 
 // ============================
-// 🔧 NORMALIZAR NIT (🔥 CLAVE)
+// 🔧 NORMALIZAR NIT (PRO)
 // ============================
 function normalizeNIT(nit: string) {
   return nit
-    .replace(/-/g, "")   // quita guiones
-    .replace(/\s/g, "")  // quita espacios
+    .replace(/[^0-9Kk]/g, "") // 🔥 deja solo números y K
     .toUpperCase()
     .trim();
 }
@@ -42,15 +41,8 @@ export async function GET() {
     }
 
     const clientes = await prisma.cliente.findMany({
-      where: {
-        usuarioId: user.id,
-      },
-      // ⚠️ usa esto SOLO si tienes createdAt en schema
-      // orderBy: { createdAt: "desc" },
-
-      orderBy: {
-        nombre: "asc", // fallback seguro
-      },
+      where: { usuarioId: user.id },
+      orderBy: { nombre: "asc" },
     });
 
     return NextResponse.json(clientes);
@@ -78,9 +70,7 @@ export async function POST(req: Request) {
     const data = await req.json();
 
     const nombre = (data.nombre || "").trim();
-    const nitRaw = data.nit || "";
-
-    const nit = normalizeNIT(nitRaw);
+    const nit = normalizeNIT(data.nit || "");
 
     // 🔍 VALIDACIONES
     if (!nombre || !nit) {
@@ -90,8 +80,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔍 VALIDACIÓN BÁSICA NIT
-    const nitRegex = /^[0-9]+[0-9K]?$/;
+    // 🔍 VALIDACIÓN FORMATO NIT
+    const nitRegex = /^[0-9]+K?$/;
     if (!nitRegex.test(nit)) {
       return NextResponse.json(
         { error: "NIT inválido" },
@@ -99,7 +89,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔍 EVITAR DUPLICADOS
+    // 🔍 DUPLICADO
     const existe = await prisma.cliente.findFirst({
       where: {
         usuarioId: user.id,
@@ -161,15 +151,24 @@ export async function DELETE(req: Request) {
       );
     }
 
-    // 🔐 verificar que sea del usuario
+    // 🔐 VALIDAR PROPIEDAD
     const cliente = await prisma.cliente.findUnique({
       where: { id },
+      include: { compras: true },
     });
 
     if (!cliente || cliente.usuarioId !== user.id) {
       return NextResponse.json(
-        { error: "No autorizado para eliminar este cliente" },
+        { error: "No autorizado" },
         { status: 403 }
+      );
+    }
+
+    // 🔥 PROTECCIÓN IMPORTANTE
+    if (cliente.compras.length > 0) {
+      return NextResponse.json(
+        { error: "No puedes eliminar un cliente con compras registradas" },
+        { status: 400 }
       );
     }
 
