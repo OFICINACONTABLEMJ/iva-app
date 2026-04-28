@@ -164,8 +164,8 @@ const generarPDF = () => {
   const pageWidth = pdf.internal.pageSize.getWidth();
 
   // 🔥 CLIENTE REAL DESDE BD
-  const nombreCliente = resumen?.cliente?.nombre || "GENERAL";
-  const nitCliente = resumen?.cliente?.nit || "-";
+  const nombreCliente = (resumen as any)?.cliente?.nombre || "GENERAL";
+const nitCliente = (resumen as any)?.cliente?.nit || "-";
 
   const drawHeader = () => {
     try {
