@@ -572,18 +572,23 @@ if (!user) {
   <label className="text-sm font-semibold">Cliente</label>
 
   <select
-    value={clienteId}
-    onChange={(e) => setClienteId(e.target.value)}
-    className="w-full mt-2 p-2 border rounded-lg"
-  >
-    <option value="">Seleccionar cliente</option>
+  value={clienteId}
+  onChange={(e) => setClienteId(e.target.value)}
+  disabled={compras.length > 0} // 🔥 AQUÍ VA
+  className={`w-full mt-2 p-2 border rounded-lg ${
+    compras.length > 0
+      ? "bg-gray-200 cursor-not-allowed"
+      : ""
+  }`}
+>
+  <option value="">Seleccionar cliente</option>
 
-    {clientes.map((c) => (
-      <option key={c.id} value={c.id}>
-        {c.nombre} - {c.nit}
-      </option>
-    ))}
-  </select>
+  {clientes.map((c) => (
+    <option key={c.id} value={c.id}>
+      {c.nombre} - {c.nit}
+    </option>
+  ))}
+</select>
 
   <div className="flex justify-between items-center mt-3">
 

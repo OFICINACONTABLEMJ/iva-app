@@ -25,8 +25,7 @@ export async function POST(req: Request) {
     // ============================
     // 🍪 COOKIE
     // ============================
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
+    const token = (await cookies()).get("session")?.value;
 
     if (!token) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -65,25 +64,54 @@ export async function POST(req: Request) {
     }
 
     // ============================
-    // 🔥 VALIDAR CLIENTE (CLAVE)
+    // 🔥 CLIENTE OBLIGATORIO (RECOMENDADO)
     // ============================
-    let clienteValido = null;
+    if (!clienteId) {
+      return NextResponse.json(
+        { error: "Debes seleccionar un cliente" },
+        { status: 400 }
+      );
+    }
 
-    if (clienteId) {
-      clienteValido = await prisma.cliente.findUnique({
-        where: { id: clienteId },
-      });
+    // ============================
+    // 🔥 VALIDAR CLIENTE
+    // ============================
+    const clienteValido = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+    });
 
-      if (!clienteValido || clienteValido.usuarioId !== userId) {
+    if (!clienteValido || clienteValido.usuarioId !== userId) {
+      return NextResponse.json(
+        { error: "Cliente inválido" },
+        { status: 400 }
+      );
+    }
+
+    // ============================
+    // 🔥 BLOQUEAR CAMBIO DE CLIENTE POR MES (CLAVE 🔥)
+    // ============================
+    const primeraCompra = await prisma.compra.findFirst({
+      where: {
+        usuarioId: userId,
+        mes: Number(mes),
+        anio: Number(anio),
+      },
+    });
+
+    if (primeraCompra) {
+      if (String(primeraCompra.clienteId) !== String(clienteId)) {
         return NextResponse.json(
-          { error: "Cliente inválido" },
+          {
+            error:
+              "No puedes cambiar el cliente en este mes. Ya hay compras registradas.",
+          },
           { status: 400 }
         );
       }
     }
 
     // ============================
-    // 🔥 NORMALIZACIÓN SEGURA
+    // 🔥 NORMALIZACIÓN
     // ============================
     const safeUUID = uuid || crypto.randomUUID();
     const safeUUIDFactura = uuidFactura || safeUUID;
@@ -107,7 +135,7 @@ export async function POST(req: Request) {
     }
 
     // ============================
-    // 🔥 DUPLICADO FACTURA
+    // 🔁 DUPLICADO FACTURA
     // ============================
     const existeFactura = await prisma.compra.findFirst({
       where: {
@@ -136,13 +164,10 @@ export async function POST(req: Request) {
         mes: Number(mes),
         anio: Number(anio),
         usuarioId: userId,
-
         uuid: safeUUID,
         uuidFactura: safeUUIDFactura,
         deducible: safeDeducible,
-
-        // 🔥 AQUÍ ESTÁ LA MAGIA
-        clienteId: clienteId || null,
+        clienteId, // 🔥 FIJO
       },
     });
 
@@ -151,7 +176,6 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("ERROR CREAR COMPRA:", error);
 
-    // 🔥 ERROR PRISMA DUPLICADO
     if (error.code === "P2002") {
       return NextResponse.json(
         { error: "Registro duplicado" },
