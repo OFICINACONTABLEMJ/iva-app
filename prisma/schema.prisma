@@ -50,6 +50,8 @@ model Compra {
 
   @@unique([uuid, usuarioId])
   @@index([uuidFactura])
+  @@index([clienteId])
+  @@index([clienteId, mes, anio])
 }
 
 model Resumen {
@@ -117,6 +119,8 @@ model Cliente {
 
   usuarioId String
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([nit, usuarioId])
 
   compras   Compra[]
   createdAt DateTime @default(now())

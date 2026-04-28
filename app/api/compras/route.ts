@@ -22,7 +22,9 @@ export async function POST(req: Request) {
       clienteId,
     } = body;
 
+    // ============================
     // 🍪 COOKIE
+    // ============================
     const cookieStore = await cookies();
     const token = cookieStore.get("session")?.value;
 
@@ -30,7 +32,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
+    // ============================
     // 🔐 JWT
+    // ============================
     let decoded: any;
     try {
       decoded = jwt.verify(token, SECRET);
@@ -61,6 +65,24 @@ export async function POST(req: Request) {
     }
 
     // ============================
+    // 🔥 VALIDAR CLIENTE (CLAVE)
+    // ============================
+    let clienteValido = null;
+
+    if (clienteId) {
+      clienteValido = await prisma.cliente.findUnique({
+        where: { id: clienteId },
+      });
+
+      if (!clienteValido || clienteValido.usuarioId !== userId) {
+        return NextResponse.json(
+          { error: "Cliente inválido" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ============================
     // 🔥 NORMALIZACIÓN SEGURA
     // ============================
     const safeUUID = uuid || crypto.randomUUID();
@@ -85,7 +107,7 @@ export async function POST(req: Request) {
     }
 
     // ============================
-    // 🔥 DUPLICADO FACTURA (PRO)
+    // 🔥 DUPLICADO FACTURA
     // ============================
     const existeFactura = await prisma.compra.findFirst({
       where: {
@@ -102,7 +124,7 @@ export async function POST(req: Request) {
     }
 
     // ============================
-    // ✅ CREAR
+    // ✅ CREAR COMPRA
     // ============================
     const compra = await prisma.compra.create({
       data: {
@@ -118,13 +140,24 @@ export async function POST(req: Request) {
         uuid: safeUUID,
         uuidFactura: safeUUIDFactura,
         deducible: safeDeducible,
+
+        // 🔥 AQUÍ ESTÁ LA MAGIA
+        clienteId: clienteId || null,
       },
     });
 
     return NextResponse.json(compra);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("ERROR CREAR COMPRA:", error);
+
+    // 🔥 ERROR PRISMA DUPLICADO
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { error: "Registro duplicado" },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json(
       { error: "Error al guardar compra" },
